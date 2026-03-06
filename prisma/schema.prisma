@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Users (Usuarios) - Centraliza o acesso
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  role          UserRole  @default(TECHNICIAN)
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  active        Boolean   @default(true)
+
+  technicianProfile Technician?
+  responsibleForSectors Sector[] @relation("SectorResponsible")
+  validations           Validation[]
+  openedTickets         Ticket[] @relation("TicketRequester")
+  uploadedEvidence      EvidenceLink[]
+  
+  approvedQuotations    Quotation[] @relation("QuotationApprover")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  SERVER           // Fiscal de Setor
+  FISCAL_CONTRATO  // Fiscal Geral (Contrato)
+  TECHNICIAN
+}
+
+// 2. Sectors (Setores) - Locais fisicos
+model Sector {
+  id              String   @id @default(uuid())
+  name            String
+  responsibleId   String?  @map("responsible_id")
+  responsible     User?    @relation("SectorResponsible", fields: [responsibleId], references: [id])
+  ordinanceNumber String?  @map("ordinance_number")
+  block           String?
+  floor           String?
+  room            String?
+  active          Boolean  @default(true)
+  
+  responsibleHistory Json?    @map("responsible_history")
+
+  assets          Asset[]
+  tickets         Ticket[]
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("sectors")
+}
+
+// 3. Assets (Equipamentos) - O inventario
+model Asset {
+  id              String   @id @default(uuid())
+  sectorId        String   @map("sector_id")
+  sector          Sector   @relation(fields: [sectorId], references: [id])
+  patrimonyNumber String   @unique @map("patrimony_number")
+  name            String
+  brand           String?
+  model           String?
+  acquisitionDate DateTime? @map("acquisition_date")
+  qrCode          String?   @unique @map("qr_code")
+
+  // Refrigeration Details
+  serialNumber    String?   @map("serial_number")
+  category        String?
+  subType         String?
+  capacityBTU     String?   @map("capacity_btu")
+  capacityLiters  Float?    @map("capacity_liters")
+  voltage         String?
+  gasType         String?   @map("gas_type")
+  compressorType  String?   @map("compressor_type")
+  criticality     String?
+  power           String?   // Unit of measure
+
+  status          String    @default("ok") // ok, waiting_tech, maintenance, paralyzed, condemned
+  
+  // Preventive Maintenance Tracking
+  lastMaintenance     DateTime? @map("last_maintenance")
+  nextMaintenance     DateTime? @map("next_maintenance")
+  
+  tickets         Ticket[]
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("assets")
+}
+
+// 4. Companies (Empresas) - Terceirizadas
+model Company {
+  id          String   @id @default(uuid())
+  name        String
+  cnpj        String   @unique
+  active      Boolean  @default(true)
+  
+  technicians Technician[]
+  contracts   Contract[]
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("companies")
+}
+
+// 5. Technicians (Tecnicos) - Vinculados a uma empresa
+model Technician {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id])
+  isManager Boolean  @default(false) @map("is_manager")
+  
+  tickets   Ticket[]
+  
+  @@map("technicians")
+}
+
+// 6. Contracts (Contratos de Manutencao)
+model Contract {
+  id              String   @id @default(uuid())
+  number          String   @unique // Nº do Contrato/Pregão
+  companyId       String   @map("company_id")
+  company         Company  @relation(fields: [companyId], references: [id])
+  startDate       DateTime @map("start_date")
+  endDate         DateTime @map("end_date")
+  active          Boolean  @default(true)
+  
+  services        ContractService[]
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("contracts")
+}
+
+model ContractService {
+  id               String   @id @default(uuid())
+  contractId       String   @map("contract_id")
+  contract         Contract @relation(fields: [contractId], references: [id])
+  description      String
+  priceMonthly     Decimal? @map("price_monthly") @db.Decimal(10, 2)
+  priceQuarterly   Decimal? @map("price_quarterly") @db.Decimal(10, 2)
+  priceSemiAnnual  Decimal? @map("price_semi_annual") @db.Decimal(10, 2)
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("contract_services")
+}
+
+// 7. Tickets (Ordens de Servico)
+model Ticket {
+  id           String       @id @default(uuid())
+  code         Int          @default(autoincrement())
+  assetId      String       @map("asset_id")
+  asset        Asset        @relation(fields: [assetId], references: [id])
+  requesterId  String       @map("requester_id")
+  requester    User         @relation("TicketRequester", fields: [requesterId], references: [id])
+  technicianId String?      @map("technician_id")
+  technician   Technician?  @relation(fields: [technicianId], references: [id])
+  
+  sectorId     String       @map("sector_id")
+  sector       Sector       @relation(fields: [sectorId], references: [id])
+
+  description  String       @db.Text
+  type         TicketType   @default(CORRECTIVE)
+  status       TicketStatus @default(OPEN)
+  
+  openedAt     DateTime     @default(now()) @map("opened_at")
+  scheduledAt  DateTime?    @map("scheduled_at")
+  closedAt     DateTime?    @map("closed_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  
+  // Valor total da OS corretiva, inserido pelo técnico líder após conclusão
+  totalValue   Decimal?     @map("total_value") @db.Decimal(10, 2)
+
+  items        ServiceItem[]
+  validations  Validation[]
+  quotation    Quotation?
+
+  @@map("tickets")
+}
+
+enum TicketType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum TicketStatus {
+  OPEN
+  AWAITING_QUOTATION        // Empresa preparando as 3 cotações
+  AWAITING_APPROVAL         // Fiscal de Contrato analisando
+  AUTHORIZED                // Aprovado pelo Fiscal Geral, aguardando execução
+  SCHEDULED                 // Agendado (Principalmente para Preventivas)
+  IN_PROGRESS
+  WAITING_VALIDATION
+  VALIDATED
+  REJECTED
+  CANCELLED
+}
+
+// 8. Quotations (Processo de Corretiva com Valor Único e Anexo das 3 Cotações)
+model Quotation {
+  id              String   @id @default(uuid())
+  ticketId        String   @unique @map("ticket_id")
+  ticket          Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  totalValue      Decimal  @map("total_value") @db.Decimal(10, 2)
+  fileUrl         String   @map("file_url") // Único PDF contendo as 3 cotações para validação
+  
+  approvedById    String?  @map("approved_by_id")
+  approvedBy      User?    @relation("QuotationApprover", fields: [approvedById], references: [id])
+  approvedAt      DateTime? @map("approved_at")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("quotations")
+}
+
+// 9. ServiceItems (Itens da OS)
+model ServiceItem {
+  id                 String     @id @default(uuid())
+  ticketId           String     @map("ticket_id")
+  ticket             Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  catalogReferenceId String?    @map("catalog_reference_id")
+  
+  titleSnapshot      String     @map("title_snapshot")
+  priceSnapshot      Decimal?   @map("price_snapshot") @db.Decimal(10, 2)
+  quantity           Float      @default(1.0)
+  technicianNotes    String?    @map("technician_notes") @db.Text
+  
+  validationStatus   ItemStatus @default(PENDING) @map("validation_status")
+  
+  evidence           EvidenceLink[]
+  
+  createdAt          DateTime   @default(now()) @map("created_at")
+
+  @@map("service_items")
+}
+
+enum ItemStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// 8. EvidenceLinks (Evidencias) - Fotos
+model EvidenceLink {
+  id            String       @id @default(uuid())
+  serviceItemId String       @map("service_item_id")
+  serviceItem   ServiceItem  @relation(fields: [serviceItemId], references: [id], onDelete: Cascade)
+  
+  url           String
+  type          EvidenceType
+  uploadedById  String       @map("uploaded_by")
+  uploadedBy    User         @relation(fields: [uploadedById], references: [id])
+  
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@map("evidence_links")
+}
+
+enum EvidenceType {
+  BEFORE
+  AFTER
+  INSPECTION
+}
+
+// 11. Validations (Historico de Validacao) - Auditoria
+model Validation {
+  id          String           @id @default(uuid())
+  ticketId    String           @map("ticket_id")
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  validatorId String           @map("validator_id")
+  validator   User             @relation(fields: [validatorId], references: [id])
+  
+  action      ValidationAction
+  reason      String?          @db.Text
+  
+  timestamp   DateTime         @default(now())
+
+  @@map("validations")
+}
+
+enum ValidationAction {
+  APPROVED
+  REJECTED
+}
+
+// 12. Catalog (Catalogo de Servicos e Pecas Geral)
+model CatalogItem {
+  id            String   @id @default(uuid())
+  name          String
+  type          String   // 'service' | 'part'
+  estimatedCost Decimal  @map("estimated_cost") @db.Decimal(10, 2)
+  description   String?
+  isContracted  Boolean  @default(false) @map("is_contracted") // True if from TR/Pregão
+  
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("catalog_items")
+}
+
+// 13. Problem Types (Tipos de Defeito)
+model ProblemType {
+  id          String   @id @default(uuid())
+  label       String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("problem_types")
+}

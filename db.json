@@ -1,0 +1,151 @@
+{
+  "sectors": [
+    {
+      "id": "sec-1",
+      "name": "Coordenação de Tecnologia (CTIC)",
+      "responsible": {
+        "id": "resp-1",
+        "name": "João da Silva",
+        "siape": "1234567",
+        "email": "joao.silva@ifam.edu.br",
+        "password": "123456",
+        "isActive": true
+      },
+      "responsibleHistory": []
+    },
+    {
+      "id": "sec-2",
+      "name": "Auditório Principal",
+      "responsible": {
+        "id": "resp-2",
+        "name": "Maria Souza",
+        "siape": "7654321",
+        "email": "maria.souza@ifam.edu.br",
+        "password": "123456",
+        "isActive": true
+      },
+      "responsibleHistory": []
+    },
+    {
+      "id": "0.8985092120208378",
+      "name": "Coordenação de Inovação Tecnológica",
+      "responsible": {
+        "name": "Edimilson Fonseca",
+        "siape": "1845876",
+        "email": "edimilson@ifam.edu.br",
+        "password": "123456",
+        "ordinanceNumber": "123/2026",
+        "designationDate": "2026-02-05",
+        "terminationDate": "",
+        "id": "0.040267118710412886",
+        "isActive": true
+      },
+      "responsibleHistory": []
+    }
+  ],
+  "assets": [
+    {
+      "id": "ast-1",
+      "patrimonyNumber": "IFAM-00100",
+      "name": "Split Samsung 12000",
+      "sectorId": "sec-1",
+      "acquisitionDate": "2023-01-15",
+      "status": "ok"
+    },
+    {
+      "id": "ast-2",
+      "patrimonyNumber": "IFAM-00101",
+      "name": "Split Consul 18000",
+      "sectorId": "sec-1",
+      "acquisitionDate": "2022-05-20",
+      "status": "ok"
+    },
+    {
+      "id": "ast-3",
+      "patrimonyNumber": "IFAM-00200",
+      "name": "Ar Central Carrier",
+      "sectorId": "sec-2",
+      "acquisitionDate": "2020-11-10",
+      "status": "paralyzed"
+    },
+    {
+      "id": "ast-4",
+      "patrimonyNumber": "IFAM-00500",
+      "name": "Bebedouro Industrial",
+      "sectorId": "sec-1",
+      "acquisitionDate": "2019-03-30",
+      "status": "ok"
+    },
+    {
+      "id": "ast-5",
+      "patrimonyNumber": "IFAM-00600",
+      "name": "Split LG Dual Inverter",
+      "sectorId": "sec-2",
+      "acquisitionDate": "2023-06-10",
+      "status": "ok"
+    },
+    {
+      "id": "0.7207880109322028",
+      "patrimonyNumber": "IFAM-123456",
+      "name": "Ar Split 12 mil Btus",
+      "brand": "LG",
+      "model": "Inverter Premium",
+      "sectorId": "sec-1",
+      "acquisitionDate": "2026-02-01",
+      "status": "ok"
+    }
+  ],
+  "tickets": [],
+  "companies": [
+    {
+      "id": "0.26186316361908624",
+      "name": "Sempre Frio",
+      "cnpj": "11258456000125",
+      "technicians": [
+        {
+          "id": "0.7214627105551682",
+          "name": "Jânio Quadros",
+          "cpf": "1234567890"
+        }
+      ]
+    }
+  ],
+  "catalog": [
+    {
+      "id": "cat-1",
+      "name": "Limpeza Química - Split até 12k BTUs",
+      "type": "service",
+      "estimatedCost": 150
+    },
+    {
+      "id": "cat-3",
+      "name": "Carga de Gás R410A",
+      "type": "service",
+      "estimatedCost": 250
+    },
+    {
+      "id": "cat-2",
+      "name": "Capacitor 35uF",
+      "type": "part",
+      "estimatedCost": 45
+    },
+    {
+      "id": "0.5638524644851036",
+      "name": "Capacitor bxb",
+      "type": "part",
+      "estimatedCost": 50
+    }
+  ],
+  "problemTypes": [
+    {
+      "id": "prob-1",
+      "label": "Não gela",
+      "description": "O equipamento liga mas não resfria."
+    },
+    {
+      "id": "prob-2",
+      "label": "Não liga",
+      "description": "Totalmente inoperante."
+    }
+  ]
+}
