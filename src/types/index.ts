@@ -37,6 +37,7 @@ export interface SectorResponsible {
   id: string; // New: Unique ID for history tracking
   name: string;
   siape: string;
+  cpf?: string;
   email: string;
   password?: string; // default 123456
   ordinanceNumber?: string;

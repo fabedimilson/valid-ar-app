@@ -68,8 +68,9 @@ export async function addSectorAction(sectorData: Sector) {
                         role: 'SERVER',
                         passwordHash: hashedPassword,
                         active: true,
+                        cpf: respData.cpf,
+                        siape: respData.siape,
                         metadata: {
-                            siape: respData.siape,
                             designationDate: respData.designationDate,
                         }
                     } as any
@@ -144,8 +145,9 @@ export async function changeSectorResponsibleAction(sectorId: string, historyIte
                     role: 'SERVER',
                     passwordHash: hashedPassword,
                     active: true,
+                    cpf: newResponsible.cpf,
+                    siape: newResponsible.siape,
                     metadata: { // Store extra fields in metadata
-                        siape: newResponsible.siape,
                         designationDate: newResponsible.designationDate || new Date().toISOString()
                     }
                 } as any
@@ -195,14 +197,15 @@ export async function updateSectorResponsibleAction(sectorId: string, data: Part
             if (data.name) updateData.name = data.name;
             if (data.email) updateData.email = data.email;
             if (data.isActive !== undefined) updateData.active = data.isActive;
+            if (data.cpf) updateData.cpf = data.cpf;
+            if (data.siape) updateData.siape = data.siape;
 
-            // Update metadata (siape, designationDate)
-            if (data.siape || data.designationDate) {
+            // Update metadata (designationDate)
+            if (data.designationDate) {
                 const currentMeta = (sector.responsible?.metadata as any) || {};
                 updateData.metadata = {
                     ...currentMeta,
-                    ...(data.siape ? { siape: data.siape } : {}),
-                    ...(data.designationDate ? { designationDate: data.designationDate } : {})
+                    designationDate: data.designationDate
                 };
             }
 
@@ -346,23 +349,19 @@ export async function addTechnicianAction(companyId: string, tech: TechnicianPro
                 email: finalEmail,
                 role: 'TECHNICIAN',
                 passwordHash: passHash,
+                cpf: tech.cpf
             }
         });
 
-        // 2. Force Update Metadata (CPF) via Raw SQL
-        if (tech.cpf) {
-            const metaJson = { cpf: tech.cpf };
-            await prisma.$executeRaw`UPDATE "users" SET "metadata" = ${metaJson} WHERE "id" = ${user.id}`;
-        }
-
-        // 3. Create Technician via Raw SQL
         const isMgr = tech.isManager === true;
-        // tech.id comes from frontend (uuidv4)
-
-        await prisma.$executeRaw`
-            INSERT INTO "technicians" ("id", "user_id", "company_id", "is_manager")
-            VALUES (${tech.id}, ${user.id}, ${companyId}, ${isMgr})
-        `;
+        await prisma.technician.create({
+            data: {
+                id: tech.id,
+                userId: user.id,
+                companyId: companyId,
+                isManager: isMgr
+            }
+        });
 
         revalidatePath('/');
         return { success: true };
@@ -417,19 +416,12 @@ export async function updateTechnicianAction(id: string, data: Partial<import('@
         const tech = await prisma.technician.findUnique({ where: { id }, select: { userId: true } });
 
         if (tech) {
-            // 3. Force Update Metadata (CPF) via Raw SQL
-            if (data.cpf) {
-                const metaJson = { cpf: data.cpf };
-                await prisma.$executeRaw`UPDATE "users" SET "metadata" = ${metaJson} WHERE "id" = ${tech.userId}`;
-                console.log(">>> [SERVER] Raw SQL Updated Metadata:", metaJson);
-            }
+            const userUpdate: any = {};
+            if (data.name) userUpdate.name = data.name;
+            if (data.email) userUpdate.email = data.email;
+            if (data.cpf) userUpdate.cpf = data.cpf;
 
-            // 4. Update Name/Email (Standard Prisma)
-            if (data.name || data.email) {
-                const userUpdate: any = {};
-                if (data.name) userUpdate.name = data.name;
-                if (data.email) userUpdate.email = data.email;
-
+            if (Object.keys(userUpdate).length > 0) {
                 await prisma.user.update({
                     where: { id: tech.userId },
                     data: userUpdate
