@@ -10,7 +10,6 @@ async function main() {
     await prisma.validation.deleteMany();
     await prisma.evidenceLink.deleteMany();
     await prisma.serviceItem.deleteMany();
-    await prisma.ticketInteraction.deleteMany();
     await prisma.ticket.deleteMany();
     await prisma.asset.deleteMany();
     await prisma.technician.deleteMany();
