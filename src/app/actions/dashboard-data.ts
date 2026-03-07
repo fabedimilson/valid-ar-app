@@ -13,6 +13,9 @@ const PROBLEM_TYPES = [
     { id: 'prob-controle', label: 'Controle Remoto / Sensor', description: 'Equipamento não responde aos comandos do controle.' },
     { id: 'prob-disjuntor', label: 'Desarmando Disjuntor', description: 'A energia cai ou o disjuntor desliga ao ligar o aparelho.' },
     { id: 'prob-erro', label: 'Código de Erro no Display', description: 'Aparece um código ou luzes piscando no visor.' },
+    { id: 'prob-vazamento-gas', label: 'Vazamento de Fluido Refrigerante', description: 'Suspeita de vazamento de gás (gelo na tubulação ou baixo rendimento).' },
+    { id: 'prob-compressor-n-parte', label: 'Compressor não parte', description: 'Ventilador externo funciona, mas o compressor não liga.' },
+    { id: 'prob-congelando', label: 'Congelamento da Unidade Interna', description: 'Formação de gelo na colmeia da evaporadora.' },
     { id: 'prob-outros', label: 'Outro Problema', description: 'Outro defeito não listado acima.' },
 ];
 
@@ -188,6 +191,14 @@ export async function getDashboardData() {
             isContracted: c.isContracted
         }));
 
+        const problemTypesRaw = await prisma.problemType.findMany({
+            where: { active: true }
+        });
+
+        const problemTypes = problemTypesRaw.length > 0
+            ? problemTypesRaw.map(p => ({ id: p.id, label: p.label, description: p.description }))
+            : PROBLEM_TYPES;
+
         return {
             success: true,
             sectors: sectors as any,
@@ -195,7 +206,7 @@ export async function getDashboardData() {
             tickets: tickets as any,
             companies: mappedCompanies as any,
             catalog: catalog,
-            problemTypes: PROBLEM_TYPES
+            problemTypes: problemTypes
         };
 
     } catch (error) {

@@ -446,7 +446,8 @@ export async function addCatalogItemAction(item: CatalogItem) {
                 name: item.name,
                 type: item.type,
                 estimatedCost: item.estimatedCost,
-                description: item.description
+                description: item.description,
+                isContracted: item.isContracted
             }
         });
         revalidatePath('/');
@@ -465,7 +466,8 @@ export async function updateCatalogItemAction(id: string, data: Partial<CatalogI
                 name: data.name,
                 type: data.type,
                 estimatedCost: data.estimatedCost,
-                description: data.description
+                description: data.description,
+                isContracted: data.isContracted
             }
         });
         revalidatePath('/');
