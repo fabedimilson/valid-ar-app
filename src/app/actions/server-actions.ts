@@ -350,7 +350,7 @@ export async function addTechnicianAction(companyId: string, tech: TechnicianPro
                 role: 'TECHNICIAN',
                 passwordHash: passHash,
                 cpf: tech.cpf
-            }
+            } as any
         });
 
         const isMgr = tech.isManager === true;
@@ -424,7 +424,7 @@ export async function updateTechnicianAction(id: string, data: Partial<import('@
             if (Object.keys(userUpdate).length > 0) {
                 await prisma.user.update({
                     where: { id: tech.userId },
-                    data: userUpdate
+                    data: userUpdate as any
                 });
             }
         }

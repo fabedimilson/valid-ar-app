@@ -216,7 +216,6 @@ export function AdminForms() {
     const [respSiape, setRespSiape] = useState("");
     const [respEmail, setRespEmail] = useState("");
     const [respOrdinance, setRespOrdinance] = useState("");
-    const [respCpf, setRespCpf] = useState("");
     const [respDate, setRespDate] = useState("");
     const [respTermination, setRespTermination] = useState("");
     const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
@@ -228,7 +227,6 @@ export function AdminForms() {
     // Change Responsible Dialog States
     const [newRespName, setNewRespName] = useState("");
     const [newRespSiape, setNewRespSiape] = useState("");
-    const [newRespCpf, setNewRespCpf] = useState("");
     const [newRespEmail, setNewRespEmail] = useState("");
     const [newRespOrdinance, setNewRespOrdinance] = useState("");
     const [newRespDate, setNewRespDate] = useState("");
@@ -248,7 +246,6 @@ export function AdminForms() {
     // Edit Responsible Dialog States
     const [editRespName, setEditRespName] = useState("");
     const [editRespSiape, setEditRespSiape] = useState("");
-    const [editRespCpf, setEditRespCpf] = useState("");
     const [editRespEmail, setEditRespEmail] = useState("");
     const [editRespOrdinance, setEditRespOrdinance] = useState("");
     const [editRespDate, setEditRespDate] = useState("");
@@ -453,7 +450,6 @@ export function AdminForms() {
                     id: uuidv4(),
                     name: respName,
                     siape: respSiape,
-                    cpf: respCpf,
                     email: respEmail,
                     ordinanceNumber: respOrdinance,
                     designationDate: respDate,
@@ -469,7 +465,7 @@ export function AdminForms() {
 
     const resetSectorForm = () => {
         setSectorName(""); setSectorBlock(""); setSectorFloor(""); setSectorRoom("");
-        setRespName(""); setRespSiape(""); setRespCpf(""); setRespEmail("");
+        setRespName(""); setRespSiape(""); setRespEmail("");
         setRespOrdinance(""); setRespDate(""); setRespTermination("");
         setEditingSectorId(null);
     };
@@ -490,7 +486,7 @@ export function AdminForms() {
 
     const openChangeRespDialog = (s: Sector) => {
         setSelectedSectorForRespChange(s);
-        setNewRespName(""); setNewRespSiape(""); setNewRespCpf(""); setNewRespEmail("");
+        setNewRespName(""); setNewRespSiape(""); setNewRespEmail("");
         setNewRespOrdinance(""); setNewRespDate("");
         setChangeRespDialogOpen(true);
     };
@@ -504,7 +500,6 @@ export function AdminForms() {
         changeSectorResponsible(selectedSectorForRespChange.id, {
             name: newRespName,
             siape: newRespSiape,
-            cpf: newRespCpf,
             email: newRespEmail,
             password: '123456', // Default new password
             ordinanceNumber: newRespOrdinance,
@@ -522,7 +517,6 @@ export function AdminForms() {
         setSelectedSectorForRespEdit(s);
         setEditRespName(s.responsible.name);
         setEditRespSiape(s.responsible.siape || "");
-        setEditRespCpf(s.responsible.cpf || "");
         setEditRespEmail(s.responsible.email);
         setEditRespOrdinance(s.responsible.ordinanceNumber || ""); // Or sector ordinance?
         setEditRespDate(s.responsible.designationDate || "");
@@ -538,7 +532,6 @@ export function AdminForms() {
             name: editRespName,
             email: editRespEmail,
             siape: editRespSiape,
-            cpf: editRespCpf,
             ordinanceNumber: editRespOrdinance,
             designationDate: editRespDate,
             isActive: editRespActive
@@ -1516,10 +1509,6 @@ export function AdminForms() {
                                             <Input type="email" placeholder="servidor@ifam.edu.br" value={respEmail} onChange={e => setRespEmail(e.target.value)} />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>CPF *</Label>
-                                            <Input placeholder="000.000.000-00" maxLength={14} value={respCpf} onChange={e => setRespCpf(formatCPF(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-2">
                                             <Label>Portaria</Label>
                                             <Input placeholder="Ex: 123/2024" value={respOrdinance} onChange={e => setRespOrdinance(e.target.value)} />
                                         </div>
@@ -1565,10 +1554,6 @@ export function AdminForms() {
                                 <div className="space-y-2">
                                     <Label>E-mail Institucional *</Label>
                                     <Input type="email" placeholder="servidor@ifam.edu.br" value={editRespEmail} onChange={e => setEditRespEmail(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>CPF *</Label>
-                                    <Input placeholder="000.000.000-00" maxLength={14} value={editRespCpf} onChange={e => setEditRespCpf(formatCPF(e.target.value))} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Portaria de Designação</Label>
@@ -1627,10 +1612,6 @@ export function AdminForms() {
                                 <div className="space-y-2">
                                     <Label>E-mail Institucional *</Label>
                                     <Input type="email" placeholder="servidor@ifam.edu.br" value={newRespEmail} onChange={e => setNewRespEmail(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>CPF *</Label>
-                                    <Input placeholder="000.000.000-00" maxLength={14} value={newRespCpf} onChange={e => setNewRespCpf(formatCPF(e.target.value))} />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Nova Portaria</Label>

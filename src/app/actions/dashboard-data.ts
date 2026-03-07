@@ -36,8 +36,8 @@ export async function getDashboardData() {
                     name: s.responsible.name,
                     email: s.responsible.email,
                     isActive: s.responsible.active,
-                    cpf: s.responsible.cpf || '',
-                    siape: s.responsible.siape || '',
+                    cpf: (s.responsible as any).cpf || '',
+                    siape: (s.responsible as any).siape || '',
                     designationDate: ((s.responsible.metadata as any)?.designationDate) || '',
                     ordinanceNumber: s.ordinanceNumber || '',
                 };
@@ -173,7 +173,7 @@ export async function getDashboardData() {
             technicians: c.technicians.map(t => ({
                 id: t.id,
                 name: t.user.name,
-                cpf: t.user.cpf || '',
+                cpf: (t.user as any).cpf || '',
                 email: t.user.email,
                 isManager: t.isManager
             }))
