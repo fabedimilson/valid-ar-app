@@ -84,6 +84,8 @@ interface AppState {
     approveQuotation: (ticketId: string, approvedById: string) => void;
 
     schedulePreventive: (assetId: string, scheduledAt: number, technicianId?: string) => void;
+    activeTechnicianTab: string;
+    setActiveTechnicianTab: (tab: string) => void;
 }
 
 const MOCK_SECTORS: Sector[] = [
@@ -280,6 +282,9 @@ export const useAppStore = create<AppState>()(
             contracts: [],
 
             problemTypes: MOCK_PROBLEM_TYPES,
+            activeTechnicianTab: 'tasks',
+            setActiveTechnicianTab: (tab) => set({ activeTechnicianTab: tab }),
+
 
             setRole: (role) => set({ currentUserRole: role }),
             setCurrentUser: (user) => set({
@@ -290,13 +295,20 @@ export const useAppStore = create<AppState>()(
                 currentSectorId: user.sectorId || null
             }),
 
-            setData: (data) => set({
-                sectors: data.sectors,
-                assets: data.assets,
-                tickets: data.tickets,
-                companies: data.companies,
-                catalog: data.catalog || [],
-                problemTypes: data.problemTypes || []
+            setData: (data) => set((state) => {
+                // Preserve optimistic (temporary) tickets that are not yet in the server data
+                const tempTickets = state.tickets.filter(t => t.id.startsWith('t-'));
+                const serverTicketIds = new Set((data.tickets || []).map((t: any) => t.id));
+                const missingTempTickets = tempTickets.filter(t => !serverTicketIds.has(t.id));
+
+                return {
+                    sectors: data.sectors,
+                    assets: data.assets,
+                    tickets: [...(data.tickets || []), ...missingTempTickets],
+                    companies: data.companies,
+                    catalog: data.catalog || [],
+                    problemTypes: data.problemTypes || []
+                };
             }),
 
             addSector: (sector) => {

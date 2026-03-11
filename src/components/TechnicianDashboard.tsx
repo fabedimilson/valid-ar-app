@@ -168,7 +168,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function TechnicianDashboard() {
-    const { tickets, companies, currentUserEmail } = useAppStore();
+    const { tickets, companies, currentUserEmail, activeTechnicianTab, setActiveTechnicianTab } = useAppStore();
 
     const technicianProfile = companies
         .flatMap(c => c.technicians)
@@ -198,7 +198,7 @@ export function TechnicianDashboard() {
                 </div>
             </div>
 
-            <Tabs defaultValue="tasks" className="space-y-6">
+            <Tabs value={activeTechnicianTab} onValueChange={setActiveTechnicianTab} className="space-y-6">
                 <TabsList className="bg-slate-100/80 p-1 rounded-xl w-full md:w-auto overflow-x-auto justify-start inline-flex whitespace-nowrap hide-scrollbar">
                     <TabsTrigger value="tasks" className="rounded-lg px-4 py-2 gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                         <LayoutDashboard className="w-4 h-4" /> Meus Chamados
