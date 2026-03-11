@@ -88,6 +88,8 @@ interface AppState {
     activeTechnicianTab: string;
     setActiveTechnicianTab: (tab: string) => void;
     fetchDashboardData: () => Promise<void>;
+    isLeader: boolean;
+    setIsLeader: (val: boolean) => void;
 }
 
 const MOCK_SECTORS: Sector[] = [
@@ -285,6 +287,8 @@ export const useAppStore = create<AppState>()(
             problemTypes: [],
             activeTechnicianTab: 'tasks',
             setActiveTechnicianTab: (tab) => set({ activeTechnicianTab: tab }),
+            isLeader: false,
+            setIsLeader: (val) => set({ isLeader: val }),
 
             fetchDashboardData: async () => {
                 const data = await getDashboardData();
@@ -304,13 +308,28 @@ export const useAppStore = create<AppState>()(
                 currentSectorId: user.sectorId || null
             }),
 
-            setData: (data) => set({
-                sectors: data.sectors,
-                assets: data.assets,
-                tickets: data.tickets || [],
-                companies: data.companies,
-                catalog: data.catalog || [],
-                problemTypes: data.problemTypes || []
+            setData: (data) => set((state) => {
+                // Smart merge tickets to avoid "disappearing" issue
+                const now = Date.now();
+                const serverTickets = data.tickets || [];
+                const serverTicketIds = new Set(serverTickets.map((t: any) => t.id));
+
+                // Keep optimistic tickets (IDs starting with t-) that aren't on world yet
+                // BUT only for 30 seconds to avoid debris
+                const pendingOptimistic = state.tickets.filter(t => 
+                    t.id.startsWith('t-') && 
+                    !serverTicketIds.has(t.id) &&
+                    (now - t.openedAt < 30000)
+                );
+
+                return {
+                    sectors: data.sectors || [],
+                    assets: data.assets || [],
+                    tickets: [...serverTickets, ...pendingOptimistic],
+                    companies: data.companies || [],
+                    catalog: data.catalog || [],
+                    problemTypes: data.problemTypes || []
+                };
             }),
 
             addSector: (sector) => {

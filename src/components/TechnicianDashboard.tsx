@@ -169,17 +169,26 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function TechnicianDashboard() {
-    const { tickets, companies, currentUserEmail, activeTechnicianTab, setActiveTechnicianTab } = useAppStore();
+    const { 
+        tickets, companies, currentUserEmail, activeTechnicianTab, 
+        setActiveTechnicianTab, isLeader, setIsLeader 
+    } = useAppStore();
 
     const technicianProfile = useMemo(() => {
+        if (!companies.length) return null;
         return companies
             .flatMap(c => c.technicians)
             .find(t => t.email === currentUserEmail);
     }, [companies, currentUserEmail]);
 
-    const isLeader = useMemo(() => {
-        return technicianProfile?.isManager || false;
-    }, [technicianProfile]);
+    useEffect(() => {
+        // Only update if we have data to be sure
+        if (companies.length > 0) {
+            if (technicianProfile) {
+                setIsLeader(technicianProfile.isManager || false);
+            }
+        }
+    }, [companies.length, technicianProfile, setIsLeader]);
 
     // Active tickets split by type
     const activeStatuses = ['open', 'in_progress', 'authorized', 'scheduled'];
