@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useMemo, useEffect } from "react";
 import { useAppStore } from "@/store/useStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,11 +171,20 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 export function TechnicianDashboard() {
     const { tickets, companies, currentUserEmail, activeTechnicianTab, setActiveTechnicianTab } = useAppStore();
 
-    const technicianProfile = companies
-        .flatMap(c => c.technicians)
-        .find(t => t.email === currentUserEmail);
+    const [isLeader, setIsLeader] = useState<boolean>(false);
 
-    const isLeader = technicianProfile?.isManager || false;
+    const technicianProfile = useMemo(() => {
+        return companies
+            .flatMap(c => c.technicians)
+            .find(t => t.email === currentUserEmail);
+    }, [companies, currentUserEmail]);
+
+    useEffect(() => {
+        if (companies.length > 0) {
+            const leaderStatus = technicianProfile?.isManager || false;
+            setIsLeader(leaderStatus);
+        }
+    }, [companies, technicianProfile]);
 
     // Active tickets split by type
     const activeStatuses = ['open', 'in_progress', 'authorized', 'scheduled'];

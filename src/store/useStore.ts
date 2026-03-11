@@ -28,6 +28,7 @@ import {
     updateAssetAction,
     updateSectorAction
 } from '@/app/actions/server-actions';
+import { getDashboardData } from '@/app/actions/dashboard-data';
 
 interface AppState {
     currentUserRole: UserRole | null;
@@ -86,6 +87,7 @@ interface AppState {
     schedulePreventive: (assetId: string, scheduledAt: number, technicianId?: string) => void;
     activeTechnicianTab: string;
     setActiveTechnicianTab: (tab: string) => void;
+    fetchDashboardData: () => Promise<void>;
 }
 
 const MOCK_SECTORS: Sector[] = [
@@ -274,16 +276,23 @@ export const useAppStore = create<AppState>()(
             currentUserName: null,
             currentUserEmail: null,
 
-            sectors: MOCK_SECTORS, // Default to mock for now until we fetch
-            assets: MOCK_ASSETS,
-            tickets: MOCK_TICKETS,
-            companies: MOCK_COMPANIES,
-            catalog: MOCK_CATALOG,
+            sectors: [],
+            assets: [],
+            tickets: [],
+            companies: [],
+            catalog: [],
             contracts: [],
-
-            problemTypes: MOCK_PROBLEM_TYPES,
+            problemTypes: [],
             activeTechnicianTab: 'tasks',
             setActiveTechnicianTab: (tab) => set({ activeTechnicianTab: tab }),
+
+            fetchDashboardData: async () => {
+                const data = await getDashboardData();
+                if (data.success) {
+                    // @ts-ignore
+                    useAppStore.getState().setData(data);
+                }
+            },
 
 
             setRole: (role) => set({ currentUserRole: role }),
@@ -295,20 +304,13 @@ export const useAppStore = create<AppState>()(
                 currentSectorId: user.sectorId || null
             }),
 
-            setData: (data) => set((state) => {
-                // Preserve optimistic (temporary) tickets that are not yet in the server data
-                const tempTickets = state.tickets.filter(t => t.id.startsWith('t-'));
-                const serverTicketIds = new Set((data.tickets || []).map((t: any) => t.id));
-                const missingTempTickets = tempTickets.filter(t => !serverTicketIds.has(t.id));
-
-                return {
-                    sectors: data.sectors,
-                    assets: data.assets,
-                    tickets: [...(data.tickets || []), ...missingTempTickets],
-                    companies: data.companies,
-                    catalog: data.catalog || [],
-                    problemTypes: data.problemTypes || []
-                };
+            setData: (data) => set({
+                sectors: data.sectors,
+                assets: data.assets,
+                tickets: data.tickets || [],
+                companies: data.companies,
+                catalog: data.catalog || [],
+                problemTypes: data.problemTypes || []
             }),
 
             addSector: (sector) => {
@@ -459,15 +461,15 @@ export const useAppStore = create<AppState>()(
                     scheduledAt,
                     description: 'Manutenção Preventiva Agendada',
                 }).then(result => {
-                    if (result.success && result.ticket?.code) {
-                        // Update ticket code once DB returns
-                        set(state => ({
-                            tickets: state.tickets.map(t =>
-                                t.id === tempId ? { ...t, code: result.ticket!.code! } : t
-                            )
-                        }));
-                    } else if (!result.success) {
+                    if (result.success) {
+                        // RE-FETCH data from server to ensure we have the real ID and code
+                        useAppStore.getState().fetchDashboardData();
+                    } else {
                         console.error('[schedulePreventive] DB save failed:', result.error);
+                        // Optional: remove optimistic ticket on failure
+                        set(state => ({
+                            tickets: state.tickets.filter(t => t.id !== tempId)
+                        }));
                     }
                 });
             },
