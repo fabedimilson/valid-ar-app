@@ -466,7 +466,7 @@ export const useAppStore = create<AppState>()(
                         useAppStore.getState().fetchDashboardData();
                     } else {
                         console.error('[schedulePreventive] DB save failed:', result.error);
-                        // Optional: remove optimistic ticket on failure
+                        // Remove optimistic ticket on failure
                         set(state => ({
                             tickets: state.tickets.filter(t => t.id !== tempId)
                         }));

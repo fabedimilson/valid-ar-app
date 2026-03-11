@@ -132,6 +132,14 @@ export function TechnicianPreventiveAgenda() {
                 // Reschedule existing OS
                 const result = await reschedulePreventiveAction(editingTicketId, scheduledAt);
                 if (result.success) {
+                    // Update store optimistically for immediate feedback
+                    useAppStore.setState(state => ({
+                        tickets: state.tickets.map(t =>
+                            t.id === editingTicketId ? { ...t, scheduledAt } : t
+                        )
+                    }));
+                    
+                    // Refresh all data from server to be sure (async)
                     useAppStore.getState().fetchDashboardData();
                     toast.success("Data da OS atualizada com sucesso!");
                 } else {
