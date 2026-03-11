@@ -10,13 +10,28 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function AdminMaintenanceDashboard() {
-    const { assets, sectors } = useAppStore();
+    const { assets, sectors, tickets } = useAppStore();
 
-    // Sort assets by next maintenance date
+    // Returns the active preventive ticket for an asset (scheduled, open, or in_progress)
+    const getActivePreventiveTicket = (assetId: string) => {
+        return tickets.find(t =>
+            t.assetId === assetId &&
+            t.type === 'preventive' &&
+            (t.status === 'scheduled' || t.status === 'open' || t.status === 'in_progress')
+        ) || null;
+    };
+
+    // Sort assets by next maintenance date or scheduled date
     const sortedAssets = [...assets].sort((a, b) => {
-        if (!a.nextMaintenance) return 1;
-        if (!b.nextMaintenance) return -1;
-        return new Date(a.nextMaintenance).getTime() - new Date(b.nextMaintenance).getTime();
+        const tA = getActivePreventiveTicket(a.id);
+        const tB = getActivePreventiveTicket(b.id);
+        const dA = tA?.scheduledAt ?? (a.nextMaintenance ? new Date(a.nextMaintenance).getTime() : 0);
+        const dB = tB?.scheduledAt ?? (b.nextMaintenance ? new Date(b.nextMaintenance).getTime() : 0);
+        
+        if (!dA && !dB) return 0;
+        if (!dA) return 1;
+        if (!dB) return -1;
+        return dA - dB;
     });
 
     const getStatusBadge = (status: string) => {
@@ -34,7 +49,7 @@ export function AdminMaintenanceDashboard() {
         }
     };
 
-    const isOverdue = (date?: string) => {
+    const isOverdue = (date?: string | Date) => {
         if (!date) return false;
         return new Date(date).getTime() < new Date().getTime();
     };
@@ -99,33 +114,47 @@ export function AdminMaintenanceDashboard() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedAssets.map((asset) => (
-                                <TableRow key={asset.id} className={isOverdue(asset.nextMaintenance) ? "bg-red-50/30" : ""}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex flex-col">
-                                            <span>{asset.name}</span>
-                                            <span className="text-[10px] text-slate-500 font-mono">{asset.patrimonyNumber}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {sectors.find(s => s.id === asset.sectorId)?.name || 'N/A'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {getStatusBadge(asset.status)}
-                                    </TableCell>
-                                    <TableCell className="text-sm text-slate-600">
-                                        {asset.lastMaintenance ? format(new Date(asset.lastMaintenance), "dd/MM/yyyy", { locale: ptBR }) : '---'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-sm font-bold ${isOverdue(asset.nextMaintenance) ? "text-red-600" : "text-slate-900"}`}>
-                                                {asset.nextMaintenance ? format(new Date(asset.nextMaintenance), "dd/MM/yyyy", { locale: ptBR }) : 'N/A'}
-                                            </span>
-                                            {isOverdue(asset.nextMaintenance) && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            {sortedAssets.map((asset) => {
+                                const activeTicket = getActivePreventiveTicket(asset.id);
+                                const displayDate = activeTicket?.scheduledAt 
+                                    ? new Date(activeTicket.scheduledAt) 
+                                    : (asset.nextMaintenance ? new Date(asset.nextMaintenance) : null);
+                                    
+                                const isDateOverdue = displayDate ? isOverdue(displayDate) : false;
+
+                                return (
+                                    <TableRow key={asset.id} className={isDateOverdue ? "bg-red-50/30" : ""}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex flex-col">
+                                                <span>{asset.name}</span>
+                                                <span className="text-[10px] text-slate-500 font-mono">{asset.patrimonyNumber}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-sm">
+                                            {sectors.find(s => s.id === asset.sectorId)?.name || 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                            {getStatusBadge(asset.status)}
+                                            {activeTicket && (
+                                                <Badge className="ml-2 bg-teal-100 text-teal-700 hover:bg-teal-200 border-teal-200" variant="outline">
+                                                    Agendado
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-slate-600">
+                                            {asset.lastMaintenance ? format(new Date(asset.lastMaintenance), "dd/MM/yyyy", { locale: ptBR }) : '---'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-sm font-bold ${isDateOverdue ? "text-red-600" : "text-slate-900"}`}>
+                                                    {displayDate ? format(displayDate, "dd/MM/yyyy", { locale: ptBR }) : 'N/A'}
+                                                </span>
+                                                {isDateOverdue && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </CardContent>
