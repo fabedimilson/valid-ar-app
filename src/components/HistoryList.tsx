@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, History, Filter, MapPin, Calendar, User, Pencil, FileSpreadsheet, FileText } from "lucide-react";
+import { Search, History, Filter, MapPin, Calendar, User, Pencil, FileSpreadsheet, FileText, ZoomIn, X, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -400,6 +400,7 @@ function Clock({ className }: { className?: string }) {
 // Sub-component for editing logic to keep main component clean
 function AdminEditView({ ticket, asset, sector, company, role, onSave }: any) {
     const [isEditing, setIsEditing] = useState(false);
+    const [previewPhoto, setPreviewPhoto] = useState<{ url: string; type: string; title?: string } | null>(null);
     const { companies } = useAppStore();
 
     // Form State
@@ -534,12 +535,21 @@ function AdminEditView({ ticket, asset, sector, company, role, onSave }: any) {
                                     {item.technicianPhotos.length > 0 && (
                                         <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
                                             {item.technicianPhotos.map((photo: any) => (
-                                                <div key={photo.id} className="relative w-16 h-16 flex-shrink-0 rounded border overflow-hidden bg-neutral-100">
-                                                    <img src={photo.url} alt="Evidence" className="w-full h-full object-cover" />
-                                                    <div className={`absolute bottom-0 w-full text-[8px] text-center text-white ${photo.type === 'before' ? 'bg-red-500/80' : 'bg-green-500/80'}`}>
+                                                <button
+                                                    key={photo.id}
+                                                    type="button"
+                                                    onClick={() => setPreviewPhoto({ url: photo.url, type: photo.type, title: item.title })}
+                                                    className="relative w-16 h-16 flex-shrink-0 rounded-lg border-2 border-slate-200 overflow-hidden bg-neutral-100 cursor-pointer hover:border-emerald-500 hover:scale-105 transition-all shadow-sm group text-left"
+                                                    title="Clique para ampliar a foto"
+                                                >
+                                                    <img src={photo.url} alt="Evidence" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                    <div className={`absolute bottom-0 w-full text-[8px] font-bold text-center text-white py-0.5 ${photo.type === 'before' ? 'bg-red-500/90' : 'bg-emerald-600/90'}`}>
                                                         {photo.type === 'before' ? 'ANTES' : 'DEPOIS'}
                                                     </div>
-                                                </div>
+                                                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                                        <ZoomIn className="w-4 h-4 drop-shadow" />
+                                                    </div>
+                                                </button>
                                             ))}
                                         </div>
                                     )}
@@ -549,6 +559,67 @@ function AdminEditView({ ticket, asset, sector, company, role, onSave }: any) {
                     </div>
                 </div>
             </div>
+
+            {/* Modal Lightbox de Foto Ampliada */}
+            {previewPhoto && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200"
+                    onClick={() => setPreviewPhoto(null)}
+                >
+                    <div
+                        className="relative max-w-4xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-slate-800/90 border-b border-slate-700 text-white">
+                            <div className="flex items-center gap-2">
+                                <Badge className={previewPhoto.type === 'before' ? 'bg-red-600 hover:bg-red-600 text-white' : 'bg-emerald-600 hover:bg-emerald-600 text-white'}>
+                                    {previewPhoto.type === 'before' ? 'Evidência: ANTES' : 'Evidência: DEPOIS'}
+                                </Badge>
+                                <span className="text-xs sm:text-sm font-semibold text-slate-200 truncate max-w-[200px] sm:max-w-md">
+                                    {previewPhoto.title || "Evidência Fotográfica"}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <a
+                                    href={previewPhoto.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-1 text-xs"
+                                    title="Abrir em tamanho original em nova aba"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Nova Aba</span>
+                                </a>
+                                <button
+                                    onClick={() => setPreviewPhoto(null)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                                    title="Fechar visualização"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Imagem Ampliada */}
+                        <div className="p-3 sm:p-5 flex items-center justify-center bg-black/70 min-h-[300px] max-h-[75vh] overflow-hidden">
+                            <img
+                                src={previewPhoto.url}
+                                alt="Evidência Ampliada"
+                                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-xl"
+                            />
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-4 py-2.5 bg-slate-900 text-xs text-slate-400 border-t border-slate-800 flex justify-between items-center">
+                            <span>Clique fora ou no X para voltar</span>
+                            <span className="font-mono text-[11px] text-slate-500">
+                                OS #{ticket.code ? `VOS ${String(ticket.code).padStart(6, '0')}` : ticket.id.slice(0, 8)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

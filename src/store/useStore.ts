@@ -26,7 +26,9 @@ import {
     updateItemValidationAction,
     updateCompanyAction,
     updateAssetAction,
-    updateSectorAction
+    updateSectorAction,
+    submitQuotationAction,
+    approveQuotationAction
 } from '@/app/actions/server-actions';
 import { getDashboardData } from '@/app/actions/dashboard-data';
 
@@ -505,8 +507,13 @@ export const useAppStore = create<AppState>()(
                     const ticketIndex = state.tickets.findIndex(t => t.id === ticketId);
                     if (ticketIndex === -1) return state;
 
-                    const updatedTickets = [...state.tickets];
-                    updatedTickets[ticketIndex].items.push(item);
+                    const updatedTickets = state.tickets.map((t, idx) => {
+                        if (idx !== ticketIndex) return t;
+                        return {
+                            ...t,
+                            items: [...t.items, item]
+                        };
+                    });
                     return { tickets: updatedTickets };
                 });
                 addItemToTicketAction(ticketId, item);
@@ -605,7 +612,10 @@ export const useAppStore = create<AppState>()(
                         quotation: quotation
                     } : t)
                 }));
-                // submitQuotationAction(ticketId, quotation); // TODO: Implement
+                submitQuotationAction(ticketId, {
+                    totalValue: quotation.totalValue,
+                    fileUrl: quotation.fileUrl
+                });
             },
 
             approveQuotation: (ticketId, approvedById) => {
@@ -626,7 +636,7 @@ export const useAppStore = create<AppState>()(
                         };
                     })
                 }));
-                // approveQuotationAction(ticketId, approvedById); // TODO: Implement
+                approveQuotationAction(ticketId, approvedById);
             },
         }),
         {

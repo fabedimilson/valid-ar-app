@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/useStore";
 import { UserRole } from "@/types";
-import { ShieldCheck, Wrench, Building2 } from "lucide-react";
+import { ShieldCheck, Wrench, Building2, FileCheck } from "lucide-react";
 
 export function RoleSwitcher() {
     const { currentUserRole, setRole } = useAppStore();
@@ -25,13 +25,23 @@ export function RoleSwitcher() {
             </Button>
             <div className="w-[1px] bg-neutral-200" />
             <Button
+                variant={currentUserRole === "fiscal_contrato" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleRoleChange("fiscal_contrato")}
+                className="flex-1 gap-1 text-xs"
+            >
+                <FileCheck className="w-3 h-3" />
+                Fiscal Contrato
+            </Button>
+            <div className="w-[1px] bg-neutral-200" />
+            <Button
                 variant={currentUserRole === "server" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => handleRoleChange("server")}
                 className="flex-1 gap-1 text-xs"
             >
                 <ShieldCheck className="w-3 h-3" />
-                Setor
+                Fiscal Setor
             </Button>
             <div className="w-[1px] bg-neutral-200" />
             <Button

@@ -25,6 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -80,19 +81,25 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-neutral-100 p-4">
-            <Card className="w-full max-w-md shadow-xl border-emerald-100/50">
+        <div className="min-h-screen flex items-center justify-center bg-neutral-100 dark:bg-black p-4 relative transition-colors duration-200">
+            <div className="absolute top-4 right-4">
+                <ThemeToggle />
+            </div>
+
+            <Card className="w-full max-w-md shadow-lg border-2 border-slate-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 rounded-2xl">
                 <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center mb-2 shadow-lg shadow-emerald-600/20">
-                        <span className="text-white font-bold text-xl">V</span>
+                    <div className="mx-auto w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center mb-2 shadow-md border border-emerald-400/30">
+                        <span className="text-white font-black text-xl">V</span>
                     </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight text-emerald-950">ValidAr</CardTitle>
-                    <CardDescription>Acesse o sistema de validação administrativa</CardDescription>
+                    <CardTitle className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">ValidAr</CardTitle>
+                    <CardDescription className="text-neutral-500 dark:text-neutral-400">
+                        Plataforma de Validação e Fiscalização de Ordens de Serviço (IFAM CMC)
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">E-mail</Label>
+                            <Label htmlFor="email" className="font-bold text-neutral-700 dark:text-neutral-300 text-xs uppercase tracking-wider">E-mail Institucional</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -100,29 +107,28 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="focus-visible:ring-emerald-600"
+                                className="bg-slate-50 dark:bg-neutral-900 border-2 border-slate-200 dark:border-neutral-800 focus-visible:ring-emerald-600 min-h-[44px]"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="password">Senha</Label>
+                            <Label htmlFor="password" className="font-bold text-neutral-700 dark:text-neutral-300 text-xs uppercase tracking-wider">Senha</Label>
                             <Input
                                 id="password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="focus-visible:ring-emerald-600"
+                                className="bg-slate-50 dark:bg-neutral-900 border-2 border-slate-200 dark:border-neutral-800 focus-visible:ring-emerald-600 min-h-[44px]"
                             />
                         </div>
-                        <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold" disabled={loading}>
-                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Entrar"}
+                        <Button type="submit" className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-sm active:scale-[0.98] transition-transform cursor-pointer" disabled={loading}>
+                            {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Entrar no Sistema"}
                         </Button>
                     </form>
                 </CardContent>
-                <CardFooter className="flex justify-center">
+                <CardFooter className="flex justify-center pb-6">
                     <p className="text-xs text-muted-foreground text-center">
-                        Problemas de acesso? Contate a CTIC. <br />
-                        Login Admin: admin@ifam.edu.br / admin
+                        Problemas de acesso? Contate o Departamento de Manutenção e Infraestrutura.
                     </p>
                 </CardFooter>
             </Card>

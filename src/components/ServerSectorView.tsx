@@ -43,65 +43,77 @@ export function ServerSectorView() {
     const pendingValidations = tickets.filter(t => t.sectorId === currentSectorId && t.status === 'waiting_validation');
 
     return (
-        <div className="space-y-8">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
+        <div className="space-y-6">
+            <div className="bg-white dark:bg-neutral-950 rounded-2xl p-6 shadow-xs border-2 border-slate-300 dark:border-neutral-800 mb-6">
                 <div className="flex flex-col gap-2">
                     <div>
-                        <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider bg-emerald-50 px-2 py-1 rounded">Setor Responsável</span>
-                        <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mt-2">{currentSector?.name}</h2>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full">
+                            Setor Designado
+                        </span>
+                        <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white mt-2 tracking-tight">
+                            {currentSector?.name}
+                        </h2>
                     </div>
-                    <p className="text-slate-500 mt-1 text-lg">
-                        Olá, <span className="font-semibold text-slate-700">{currentSector?.responsible?.name}</span>.
+                    <p className="text-slate-600 dark:text-slate-400 text-base">
+                        Fiscal responsável: <span className="font-bold text-slate-800 dark:text-slate-200">{currentSector?.responsible?.name}</span>
                     </p>
 
-                    <div className="mt-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100 flex items-start gap-3">
-                        <div className="bg-blue-100 p-2 rounded-full text-blue-600 shrink-0">
+                    <div className="mt-3 p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border-2 border-blue-200 dark:border-blue-900 flex items-start gap-3">
+                        <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg text-blue-700 dark:text-blue-300 shrink-0">
                             <Wrench className="w-5 h-5" />
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-700 text-sm">Precisa de manutenção?</h4>
-                            <p className="text-sm text-slate-500">
-                                Identifique o equipamento desejado na lista abaixo e clique em <b>"Solicitar Reparo"</b> para abrir um novo chamado.
+                            <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Abertura de Chamados e Atesto</h4>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+                                Identifique o ar-condicionado na lista abaixo para solicitar reparo ou confira os serviços concluídos na barra de validação para atesto.
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-
-            {/* Alerts / Tasks */}
-            <div className="space-y-2 animate-in slide-in-from-top-2">
-                {pendingValidations.map(t => {
-                    const tAsset = assets.find(a => a.id === t.assetId);
-                    return (
-                        <div key={t.id} className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex justify-between items-center shadow-sm">
-                            <div className="flex gap-3 items-center">
-                                <div className="bg-amber-100 p-2 rounded-full text-amber-600 animate-pulse">
-                                    <AlertCircle className="w-5 h-5" />
+            {/* Alertas de Validação Pendente */}
+            {pendingValidations.length > 0 && (
+                <div className="space-y-3 animate-in slide-in-from-top-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" /> Serviços Aguardando Seu Atesto ({pendingValidations.length})
+                    </h3>
+                    {pendingValidations.map(t => {
+                        const tAsset = assets.find(a => a.id === t.assetId);
+                        return (
+                            <div key={t.id} className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-400 dark:border-amber-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-xs">
+                                <div className="flex gap-3 items-center">
+                                    <div className="bg-amber-100 dark:bg-amber-900/60 p-2.5 rounded-xl text-amber-700 dark:text-amber-300 shrink-0 animate-pulse">
+                                        <AlertCircle className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-amber-950 dark:text-amber-100 text-sm sm:text-base">
+                                            Validar Serviço: {tAsset?.name} ({tAsset?.patrimonyNumber})
+                                        </h4>
+                                        <p className="text-xs sm:text-sm text-amber-800 dark:text-amber-300">
+                                            O técnico concluiu o atendimento. Confira as fotos de Antes/Depois para atestar.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="font-bold text-amber-900">Validar Serviço: {tAsset?.name} ({tAsset?.patrimonyNumber})</h4>
-                                    <p className="text-sm text-amber-700">Técnico finalizou. Verifique o serviço realizado.</p>
-                                </div>
+                                <Link href={`/server/validate/${t.id}`} className="w-full sm:w-auto">
+                                    <Button size="lg" className="w-full sm:w-auto min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2 shadow-xs cursor-pointer">
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        Inspecionar e Atestar
+                                    </Button>
+                                </Link>
                             </div>
-                            <Link href={`/server/validate/${t.id}`}>
-                                <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-2">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Validar Agora
-                                </Button>
-                            </Link>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            )}
 
-            {/* My Equipment Grid */}
+            {/* Grid dos Equipamentos do Setor */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myAssets.map(asset => {
                     const activeTicket = tickets.find(t => t.assetId === asset.id && t.status !== 'validated' && t.status !== 'completed');
 
                     return (
-                        <Card key={asset.id} className={`border-l-4 shadow-sm transition-all hover:shadow-md ${asset.status === 'ok' ? 'border-l-emerald-500' :
+                        <Card key={asset.id} className={`border-2 border-slate-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 border-l-4 rounded-xl shadow-xs transition-all hover:shadow-md ${asset.status === 'ok' ? 'border-l-emerald-500' :
                             asset.status === 'maintenance' ? 'border-l-blue-500' : 'border-l-red-500'}`}>
                             <CardHeader className="pb-3 pt-4 px-4">
                                 <div className="flex justify-between items-start">

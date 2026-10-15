@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { UserCog } from "lucide-react";
 
+import { ThemeToggle } from "@/components/ThemeToggle";
+
 export default function DashboardPage() {
     const { currentUserRole, currentUserEmail, setCurrentUser, setData, tickets, sectors, assets, currentUserName, currentSectorId } = useAppStore();
     const { status, data: session } = useSession();
@@ -63,42 +65,44 @@ export default function DashboardPage() {
 
     if (status === "loading" || (!isStoreReady && status === 'authenticated')) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-50 gap-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-50 dark:bg-black gap-4">
                 <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
-                <p className="text-neutral-500 font-medium">Carregando sistema VOS...</p>
+                <p className="text-neutral-500 dark:text-neutral-400 font-medium">Carregando sistema VOS...</p>
             </div>
         );
     }
 
     return (
-        <main className="min-h-screen bg-neutral-50 text-neutral-900 animate-in fade-in overflow-x-hidden">
-            {/* Premium Header */}
-            <header className="bg-white border-b sticky top-0 z-20 shadow-sm">
+        <main className="min-h-screen bg-neutral-50 dark:bg-black text-neutral-900 dark:text-neutral-100 animate-in fade-in overflow-x-hidden">
+            {/* Premium Header com Bordas Destacadas */}
+            <header className="bg-white/95 dark:bg-neutral-950/95 border-b-2 border-slate-200 dark:border-neutral-800 sticky top-0 z-20 backdrop-blur-md shadow-xs">
                 <div className="container mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-lg flex items-center justify-center text-white font-bold shadow-md">
+                        <Link href="/" className="flex items-center gap-2 group">
+                            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-lg flex items-center justify-center text-white font-bold shadow-md border border-emerald-400/30 group-hover:scale-105 transition-transform">
                                 V
                             </div>
                             <div>
-                                <span className="font-bold text-xl tracking-tight block leading-none">VOS</span>
-                                <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-medium">IFAM CMC</span>
+                                <span className="font-bold text-xl tracking-tight block leading-none group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">VOS</span>
+                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 uppercase tracking-widest font-semibold">IFAM CMC</span>
                             </div>
                         </Link>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        <ThemeToggle />
+
                         <Sheet>
                             <SheetTrigger asChild>
-                                <div className="text-right hidden md:block cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors group">
-                                    <p className="text-sm font-bold group-hover:text-emerald-700 transition-colors flex items-center justify-end gap-2">
-                                        {currentUserName}
-                                        <UserCog className="w-3 h-3 text-slate-400 group-hover:text-emerald-500" />
+                                <div className="text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-neutral-900 p-1.5 md:p-2 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-neutral-700 transition-all group">
+                                    <p className="text-xs md:text-sm font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors flex items-center justify-end gap-1.5">
+                                        <span className="truncate max-w-[120px] md:max-w-none">{currentUserName}</span>
+                                        <UserCog className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500" />
                                     </p>
                                     <div className="flex items-center justify-end gap-1">
-                                        <span className={`w-2 h-2 rounded-full ${currentUserRole === 'admin' ? 'bg-purple-500' : currentUserRole === 'server' ? 'bg-blue-500' : 'bg-orange-500'}`}></span>
-                                        <p className="text-xs text-muted-foreground capitalize">
-                                            {currentUserRole === 'admin' ? 'Administrador' : currentUserRole === 'server' ? 'Servidor / Fiscal' : 'Técnico'}
+                                        <span className={`w-2 h-2 rounded-full ${currentUserRole === 'admin' || currentUserRole === 'fiscal_contrato' ? 'bg-purple-500' : currentUserRole === 'server' ? 'bg-blue-500' : 'bg-orange-500'}`}></span>
+                                        <p className="text-[10px] md:text-xs text-muted-foreground capitalize">
+                                            {currentUserRole === 'admin' ? 'Admin' : currentUserRole === 'fiscal_contrato' ? 'Fiscal Contrato' : currentUserRole === 'server' ? 'Fiscal Setor' : 'Técnico'}
                                         </p>
                                     </div>
                                 </div>
@@ -209,8 +213,8 @@ export default function DashboardPage() {
             {/* Main Content Area - Fluid on mobile, fixed on desktop */}
             <div className="w-full md:container md:mx-auto px-4 py-8 md:max-w-5xl overflow-hidden">
 
-                {/* ADMIN VIEW */}
-                {currentUserRole === 'admin' && (
+                {/* ADMIN & FISCAL DE CONTRATO VIEW */}
+                {(currentUserRole === 'admin' || currentUserRole === 'fiscal_contrato') && (
                     <AdminDashboard />
                 )}
 

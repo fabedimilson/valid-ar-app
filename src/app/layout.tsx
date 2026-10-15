@@ -8,6 +8,8 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { getDb } from "@/lib/db";
 import { DataHydrator } from "@/components/DataHydrator";
 
+import { ThemeProvider } from "@/components/ThemeProvider";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -22,6 +24,8 @@ export const metadata: Metadata = {
   title: "VOS - Validação de Ordem de Serviços",
   description: "Plataforma de validação visual para serviços de ar-condicionado em órgãos públicos.",
 };
+
+export const dynamic = 'force-dynamic';
 
 export default async function RootLayout({
   children,
@@ -40,13 +44,20 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-50 dark:bg-black text-neutral-900 dark:text-neutral-100 min-h-screen`}
       >
-        <AuthProvider session={session}>
-          <DataHydrator initialData={db.data} />
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider session={session}>
+            <DataHydrator initialData={db.data} />
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

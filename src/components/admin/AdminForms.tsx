@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { HistoryList } from "@/components/HistoryList";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { QuotationApprovalTab } from "@/components/admin/QuotationApprovalTab";
 
 // Placeholder for HistoryDialog
 function HistoryDialog({ asset }: { asset: Asset }) {
@@ -176,8 +175,6 @@ export function AdminForms() {
         problemTypes, addProblemType, updateProblemType, deleteProblemType,
         changeSectorResponsible, updateSectorResponsible, tickets
     } = useAppStore();
-
-    const pendingTickets = tickets.filter(t => t.status === 'awaiting_approval');
 
     // --- STATES ---
 
@@ -719,22 +716,13 @@ export function AdminForms() {
         <Tabs defaultValue="assets" className="space-y-4">
             <TabsList className="bg-slate-100 p-1 rounded-lg w-full grid grid-cols-2 md:grid-cols-5">
                 <TabsTrigger value="assets">Ativos (Patrimônio)</TabsTrigger>
-                <TabsTrigger value="sectors">Setores & Ficais</TabsTrigger>
+                <TabsTrigger value="sectors">Setores & Fiscais</TabsTrigger>
                 <TabsTrigger value="companies">Empresas & Técnicos</TabsTrigger>
                 <TabsTrigger value="catalog">Catálogo & Preços</TabsTrigger>
-                <TabsTrigger value="quotations" className="gap-2">
-                    Cotações <Badge variant="secondary" className="bg-amber-100 text-amber-700 h-5 px-1.5">{pendingTickets.length}</Badge>
-                </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-1.5">
                     <History className="w-4 h-4" /> Histórico de OS
                 </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="quotations" className="animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
-                    <QuotationApprovalTab />
-                </div>
-            </TabsContent>
 
             {/* --- ASSETS TAB --- */}
             <TabsContent value="assets" className="space-y-4">

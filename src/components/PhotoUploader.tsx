@@ -61,15 +61,15 @@ export function PhotoUploader({ label, onUpload, className }: PhotoUploaderProps
                 type="button"
                 onClick={handleClick}
                 disabled={isUploading}
-                className="w-full h-12 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center gap-2 text-neutral-500 hover:bg-neutral-50 hover:border-emerald-500 hover:text-emerald-600 transition-all active:scale-95 disabled:opacity-50"
+                className="w-full min-h-[48px] border-2 border-dashed border-slate-400 dark:border-neutral-700 rounded-xl flex items-center justify-center gap-2 text-slate-700 dark:text-neutral-200 bg-slate-50/50 dark:bg-neutral-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-500 dark:hover:border-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-400 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer shadow-xs"
             >
                 {isUploading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
                 ) : (
-                    <Camera className="w-5 h-5" />
+                    <Camera className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 )}
-                <span className="text-sm font-medium">
-                    {isUploading ? "Processando..." : "Câmera / Galeria"}
+                <span className="text-sm font-semibold">
+                    {isUploading ? "Processando..." : "Acionar Câmera / Galeria"}
                 </span>
             </button>
         </div>

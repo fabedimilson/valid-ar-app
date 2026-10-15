@@ -8,10 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     DollarSign, FileText, CheckCircle2, AlertCircle, Loader2,
-    Wrench, Calendar, Building2, Download, Printer, ClipboardList
+    Wrench, Calendar, Download, ClipboardList, TrendingUp,
+    BarChart3, ArrowUpRight, ShieldCheck, Layers
 } from "lucide-react";
 import { toast } from "sonner";
-import { setTicketTotalValueAction, getValidatedTicketsAction, getPaymentReportDataAction } from "@/app/actions/server-actions";
+import {
+    setTicketTotalValueAction,
+    getValidatedTicketsAction,
+    getPaymentReportDataAction,
+    getFinancialEvolutionAction
+} from "@/app/actions/server-actions";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +44,26 @@ interface ReportData {
     grandTotal: number;
 }
 
+interface MonthEvolution {
+    month: number;
+    name: string;
+    preventiveTotal: number;
+    correctiveTotal: number;
+    total: number;
+    preventiveCount: number;
+    correctiveCount: number;
+    totalCount: number;
+}
+
+interface EvolutionData {
+    year: number;
+    months: MonthEvolution[];
+    yearPreventive: number;
+    yearCorrective: number;
+    yearGrandTotal: number;
+    totalTicketsCount: number;
+}
+
 const MONTHS_PT = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
@@ -51,7 +77,347 @@ function fmtDate(s: string) {
     return new Date(s).toLocaleDateString("pt-BR");
 }
 
-// ─── OS Value Entry Panel ─────────────────────────────────────────────────────
+// ─── 1. GRÁFICOS E EVOLUÇÃO FINANCEIRA ─────────────────────────────────────────
+
+function FinancialChartsPanel() {
+    const currentYear = new Date().getFullYear();
+    const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+    const [loading, setLoading] = useState(true);
+    const [evolution, setEvolution] = useState<EvolutionData | null>(null);
+    const [activeHoverMonth, setActiveHoverMonth] = useState<MonthEvolution | null>(null);
+
+    const years = Array.from({ length: 4 }, (_, i) => currentYear - i);
+
+    useEffect(() => {
+        loadEvolution(selectedYear);
+    }, [selectedYear]);
+
+    async function loadEvolution(year: number) {
+        setLoading(true);
+        const res = await getFinancialEvolutionAction(year);
+        if (res.success) {
+            setEvolution(res as EvolutionData);
+        } else {
+            toast.error("Erro ao carregar dados financeiros do ano.");
+        }
+        setLoading(false);
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-20 gap-3 text-slate-500">
+                <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                <span className="font-medium animate-pulse text-sm">Calculando evolução de gastos com serviços...</span>
+            </div>
+        );
+    }
+
+    const months = evolution?.months || [];
+    const maxMonthTotal = Math.max(...months.map(m => m.total), 1);
+    const grandTotal = evolution?.yearGrandTotal || 0;
+    const preventiveTotal = evolution?.yearPreventive || 0;
+    const correctiveTotal = evolution?.yearCorrective || 0;
+    const avgMonthly = grandTotal / 12;
+
+    const preventiveShare = grandTotal > 0 ? Math.round((preventiveTotal / grandTotal) * 100) : 0;
+    const correctiveShare = grandTotal > 0 ? Math.round((correctiveTotal / grandTotal) * 100) : 0;
+
+    return (
+        <div className="space-y-6 animate-in fade-in">
+            {/* Top Bar with Year Selector */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                    <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-emerald-600" />
+                        Evolução Temporal dos Gastos com Climatização
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                        Acompanhe o comportamento histórico dos custos de manutenção preventiva e corretiva ao longo do ano.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ano de Exercício:</span>
+                    <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                        <SelectTrigger className="w-32 h-10 bg-white border-slate-300 font-bold text-slate-800">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white">
+                            {years.map(y => (
+                                <SelectItem key={y} value={String(y)} className="font-semibold cursor-pointer">
+                                    {y}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border border-slate-200 shadow-sm bg-gradient-to-br from-white to-emerald-50/40">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gasto Total Anual</p>
+                                <p className="text-2xl font-black text-slate-900 mt-1">{fmtCurrency(grandTotal)}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                <DollarSign className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 font-medium">
+                            {evolution?.totalTicketsCount || 0} OS(s) concluídas em {selectedYear}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="border border-blue-100 shadow-sm bg-gradient-to-br from-white to-blue-50/40">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-[11px] font-bold text-blue-500 uppercase tracking-wider">Total Preventivas</p>
+                                <p className="text-2xl font-black text-blue-700 mt-1">{fmtCurrency(preventiveTotal)}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                                <Calendar className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 font-bold">
+                                {preventiveShare}% dos custos
+                            </Badge>
+                            <span className="text-xs text-slate-500">Tabelado da ata</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border border-orange-100 shadow-sm bg-gradient-to-br from-white to-orange-50/40">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-[11px] font-bold text-orange-500 uppercase tracking-wider">Total Corretivas</p>
+                                <p className="text-2xl font-black text-orange-600 mt-1">{fmtCurrency(correctiveTotal)}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
+                                <Wrench className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 font-bold">
+                                {correctiveShare}% dos custos
+                            </Badge>
+                            <span className="text-xs text-slate-500">Peças e reparos</span>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border border-indigo-100 shadow-sm bg-gradient-to-br from-white to-indigo-50/40">
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider">Média Mensal</p>
+                                <p className="text-2xl font-black text-indigo-700 mt-1">{fmtCurrency(avgMonthly)}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                                <BarChart3 className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2 font-medium">
+                            Ritmo orçamentário médio
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Main Interactive Chart: Monthly Spending Breakdown */}
+            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50/70 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <BarChart3 className="w-5 h-5 text-indigo-600" />
+                                Histórico Mensal de Gastos ({selectedYear})
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-500">
+                                Distribuição de despesas entre Manutenções Preventivas (azul) e Manutenções Corretivas (laranja).
+                            </CardDescription>
+                        </div>
+                        {/* Legend */}
+                        <div className="flex items-center gap-4 text-xs font-semibold">
+                            <div className="flex items-center gap-1.5 text-blue-700">
+                                <span className="w-3 h-3 rounded bg-blue-500 inline-block shadow-sm"></span>
+                                Preventivas
+                            </div>
+                            <div className="flex items-center gap-1.5 text-orange-600">
+                                <span className="w-3 h-3 rounded bg-orange-500 inline-block shadow-sm"></span>
+                                Corretivas
+                            </div>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                    {/* SVG/CSS Bar Chart Container */}
+                    <div className="space-y-4">
+                        <div className="h-64 flex items-end justify-between gap-1 sm:gap-2 pt-6 pb-2 border-b border-slate-200">
+                            {months.map((m) => {
+                                const totalHeightPct = maxMonthTotal > 0 ? (m.total / maxMonthTotal) * 100 : 0;
+                                const prevHeightPct = m.total > 0 ? (m.preventiveTotal / m.total) * totalHeightPct : 0;
+                                const corrHeightPct = m.total > 0 ? (m.correctiveTotal / m.total) * totalHeightPct : 0;
+
+                                const isHovered = activeHoverMonth?.month === m.month;
+
+                                return (
+                                    <div
+                                        key={m.month}
+                                        onMouseEnter={() => setActiveHoverMonth(m)}
+                                        onMouseLeave={() => setActiveHoverMonth(null)}
+                                        className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer relative"
+                                    >
+                                        {/* Value Indicator on Top */}
+                                        <div className="text-[10px] font-bold text-slate-500 group-hover:text-slate-900 group-hover:scale-110 transition-transform mb-1 opacity-80 group-hover:opacity-100">
+                                            {m.total > 0 ? (
+                                                <span className="hidden md:inline">
+                                                    {m.total >= 1000 ? `R$ ${(m.total / 1000).toFixed(1)}k` : `R$ ${m.total.toFixed(0)}`}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-300">—</span>
+                                            )}
+                                        </div>
+
+                                        {/* Bar Stack */}
+                                        <div
+                                            className={`w-full max-w-[42px] rounded-t-md overflow-hidden flex flex-col justify-end transition-all duration-300 ${isHovered ? "ring-2 ring-indigo-400 scale-[1.03]" : "hover:brightness-105"
+                                                }`}
+                                            style={{
+                                                height: m.total > 0 ? `${Math.max(totalHeightPct, 6)}%` : "4px",
+                                                backgroundColor: m.total === 0 ? "#e2e8f0" : "transparent"
+                                            }}
+                                        >
+                                            {/* Corrective portion (Top) */}
+                                            {m.correctiveTotal > 0 && (
+                                                <div
+                                                    className="w-full bg-gradient-to-t from-orange-500 to-orange-400 transition-all duration-500"
+                                                    style={{ height: `${(m.correctiveTotal / m.total) * 100}%` }}
+                                                    title={`Corretivas: ${fmtCurrency(m.correctiveTotal)}`}
+                                                />
+                                            )}
+                                            {/* Preventive portion (Bottom) */}
+                                            {m.preventiveTotal > 0 && (
+                                                <div
+                                                    className="w-full bg-gradient-to-t from-blue-600 to-blue-500 transition-all duration-500"
+                                                    style={{ height: `${(m.preventiveTotal / m.total) * 100}%` }}
+                                                    title={`Preventivas: ${fmtCurrency(m.preventiveTotal)}`}
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Month Label */}
+                                        <span className={`text-[11px] font-bold mt-2 uppercase tracking-wider transition-colors ${isHovered ? "text-indigo-600" : "text-slate-600"
+                                            }`}>
+                                            {m.name}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Interactive Month Details Strip */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                                    <Calendar className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                        {activeHoverMonth ? `Detalhamento de ${MONTHS_PT[activeHoverMonth.month - 1]} / ${selectedYear}` : "Dica de Análise"}
+                                    </p>
+                                    <p className="text-sm font-semibold text-slate-700">
+                                        {activeHoverMonth
+                                            ? `Total: ${fmtCurrency(activeHoverMonth.total)} (${activeHoverMonth.totalCount} ordens de serviço executadas)`
+                                            : "Passe o cursor sobre as barras dos meses para ver o detalhamento individual de cada período."}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {activeHoverMonth && (
+                                <div className="flex items-center gap-4 text-xs">
+                                    <div className="bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg">
+                                        <span className="text-blue-700 font-bold">Preventivas: </span>
+                                        <span className="font-extrabold text-blue-900">{fmtCurrency(activeHoverMonth.preventiveTotal)}</span>
+                                        <span className="text-slate-500 ml-1">({activeHoverMonth.preventiveCount} OS)</span>
+                                    </div>
+                                    <div className="bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg">
+                                        <span className="text-orange-700 font-bold">Corretivas: </span>
+                                        <span className="font-extrabold text-orange-900">{fmtCurrency(activeHoverMonth.correctiveTotal)}</span>
+                                        <span className="text-slate-500 ml-1">({activeHoverMonth.correctiveCount} OS)</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Monthly Breakdown Table */}
+            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b border-slate-100 pb-3">
+                    <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                        Tabela de Demonstrativo Financeiro Anual ({selectedYear})
+                    </CardTitle>
+                </CardHeader>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                        <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                <th className="px-4 py-3 text-left">Mês</th>
+                                <th className="px-4 py-3 text-right">Preventivas (R$)</th>
+                                <th className="px-4 py-3 text-right">Corretivas (R$)</th>
+                                <th className="px-4 py-3 text-right">Total do Mês (R$)</th>
+                                <th className="px-4 py-3 text-center">Nº de Serviços</th>
+                                <th className="px-4 py-3 text-right">% do Ano</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                            {months.map((m) => {
+                                const share = grandTotal > 0 ? ((m.total / grandTotal) * 100).toFixed(1) : "0.0";
+                                return (
+                                    <tr key={m.month} className="hover:bg-slate-50/60 transition-colors">
+                                        <td className="px-4 py-2.5 font-bold text-slate-800">{MONTHS_PT[m.month - 1]}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-blue-700">{fmtCurrency(m.preventiveTotal)}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono text-orange-600">{fmtCurrency(m.correctiveTotal)}</td>
+                                        <td className="px-4 py-2.5 text-right font-mono font-bold text-slate-900">{fmtCurrency(m.total)}</td>
+                                        <td className="px-4 py-2.5 text-center">
+                                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-600">
+                                                {m.totalCount} OS
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-slate-500 font-mono">{share}%</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                        <tfoot>
+                            <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900">
+                                <td className="px-4 py-3 uppercase tracking-wider text-[11px]">Totais Anuais:</td>
+                                <td className="px-4 py-3 text-right font-mono text-blue-800">{fmtCurrency(preventiveTotal)}</td>
+                                <td className="px-4 py-3 text-right font-mono text-orange-700">{fmtCurrency(correctiveTotal)}</td>
+                                <td className="px-4 py-3 text-right font-mono text-emerald-800 text-sm">{fmtCurrency(grandTotal)}</td>
+                                <td className="px-4 py-3 text-center">
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                                        {evolution?.totalTicketsCount || 0} OS
+                                    </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-right font-mono">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </Card>
+        </div>
+    );
+}
+
+// ─── 2. LANÇAMENTO DE VALORES DE CORRETIVAS ────────────────────────────────────
 
 function OSValueEntry() {
     const [osList, setOsList] = useState<OSItem[]>([]);
@@ -69,7 +435,6 @@ function OSValueEntry() {
         if (result.success) {
             const list = result.tickets as OSItem[];
             setOsList(list);
-            // Pre-populate with existing values
             const init: Record<string, string> = {};
             list.forEach((os) => {
                 if (os.totalValue !== null) init[os.id] = String(os.totalValue);
@@ -89,7 +454,7 @@ function OSValueEntry() {
         setSaving(osId);
         const result = await setTicketTotalValueAction(osId, val);
         if (result.success) {
-            toast.success("Valor salvo com sucesso!");
+            toast.success("Valor financeiro salvo com sucesso!");
             setOsList((prev) => prev.map((os) => os.id === osId ? { ...os, totalValue: val } : os));
         } else {
             toast.error("Erro ao salvar o valor.");
@@ -101,7 +466,7 @@ function OSValueEntry() {
         return (
             <div className="flex items-center justify-center py-16 gap-3 text-slate-500">
                 <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-                <span className="font-medium animate-pulse">Carregando OS concluídas...</span>
+                <span className="font-medium animate-pulse text-sm">Carregando serviços corretivos concluídos...</span>
             </div>
         );
     }
@@ -110,19 +475,19 @@ function OSValueEntry() {
         return (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                 <ClipboardList className="h-10 w-10 opacity-30" />
-                <p className="text-sm font-medium">Nenhuma OS de reparo concluída encontrada.</p>
+                <p className="text-sm font-medium">Nenhum serviço de reparo corretivo pendente de preenchimento.</p>
             </div>
         );
     }
 
     return (
         <div className="space-y-4">
-            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg flex gap-3 text-indigo-800 text-sm">
-                <AlertCircle className="w-5 h-5 shrink-0 text-indigo-500" />
+            <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex gap-3 text-indigo-800 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0 text-indigo-600 mt-0.5" />
                 <p>
-                    Abaixo estão listadas as OS de reparo (<strong>Corretivas</strong>) validadas pelo fiscal de setor.
-                    Insira o valor total cobrado em cada intervenção (conforme fechamento comercial).
-                    As preventivas já possuem valor fixado pelo serviço licitado e não necessitam de preenchimento.
+                    Abaixo estão listadas as Ordens de Serviço de <strong>Manutenção Corretiva (Reparos)</strong> devidamente validadas pelo Fiscal de Setor.
+                    Insira ou ajuste o <strong>valor total cobrado</strong> pelo prestador no serviço.
+                    As manutenções preventivas não necessitam de preenchimento manual, pois utilizam o preço tarifado da ata licitada.
                 </p>
             </div>
 
@@ -134,12 +499,11 @@ function OSValueEntry() {
                     <div
                         key={os.id}
                         className={`rounded-xl border p-4 transition-all hover:shadow-md ${hasValue
-                            ? "bg-emerald-50/50 border-emerald-200"
+                            ? "bg-emerald-50/40 border-emerald-200"
                             : "bg-white border-slate-200"
                             }`}
                     >
                         <div className="flex items-start justify-between gap-3 flex-wrap">
-                            {/* Info */}
                             <div className="space-y-1.5 min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 font-bold tracking-wide">
@@ -148,79 +512,59 @@ function OSValueEntry() {
                                     <Badge variant="outline" className="text-slate-600 bg-slate-50 uppercase text-[10px]">
                                         Corretiva
                                     </Badge>
-                                    {hasValue && (
-                                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
-                                            <CheckCircle2 className="h-3 w-3 mr-1" /> Valor lançado
+                                    {hasValue ? (
+                                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] gap-1 font-bold">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            Valor Definido
+                                        </Badge>
+                                    ) : (
+                                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] gap-1 font-bold">
+                                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                                            Pendente de Valor
                                         </Badge>
                                     )}
                                 </div>
-                                <h3 className="text-base font-bold text-slate-800 line-clamp-1">
-                                    {os.assetName || "Equipamento"}
-                                </h3>
-                                <div className="flex items-center gap-3 text-xs text-slate-500">
-                                    <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{os.patrimonyNumber}</span>
-                                    <span>·</span>
-                                    <span className="font-medium">{os.sectorName}</span>
-                                    <span>·</span>
-                                    <span>Concluída em {fmtDate(os.closedAt)}</span>
+
+                                <p className="font-bold text-slate-800 text-sm">{os.assetName || "Equipamento não especificado"}</p>
+                                <p className="text-xs text-slate-500 line-clamp-2">{os.description}</p>
+
+                                <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap pt-1">
+                                    <span>📍 Setor: <strong className="text-slate-700">{os.sectorName || "—"}</strong></span>
+                                    <span>📅 Conclusão: <strong className="text-slate-700">{fmtDate(os.closedAt)}</strong></span>
                                 </div>
-                                <p className="text-xs text-slate-600 italic mt-1 line-clamp-2 bg-slate-50 p-2 rounded border border-slate-100">
-                                    "{os.description}"
-                                </p>
                             </div>
 
-                            {/* Value Input */}
-                            <div className="flex items-center gap-2 shrink-0 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Valor Final</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
-                                        <Input
-                                            type="text"
-                                            inputMode="decimal"
-                                            placeholder="0,00"
-                                            value={values[os.id] ?? (os.totalValue !== null ? String(os.totalValue) : "")}
-                                            onChange={(e) => setValues((prev) => ({ ...prev, [os.id]: e.target.value }))}
-                                            className="pl-9 w-36 h-10 text-base font-bold bg-white border-slate-300 text-slate-800 focus:ring-indigo-500 focus:border-indigo-500 text-right"
-                                        />
-                                    </div>
+                            {/* Value input & save */}
+                            <div className="flex items-center gap-2 self-center sm:self-auto">
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0,00"
+                                        value={values[os.id] ?? ""}
+                                        onChange={(e) => setValues((prev) => ({ ...prev, [os.id]: e.target.value }))}
+                                        className="pl-8 w-36 h-10 font-bold text-slate-800 border-slate-300 focus:ring-emerald-500"
+                                    />
                                 </div>
                                 <Button
-                                    size="lg"
-                                    disabled={saving === os.id || (!isDirty && hasValue)}
+                                    size="sm"
                                     onClick={() => handleSave(os.id)}
-                                    className={`mt-5 ${hasValue && !isDirty
-                                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                        : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+                                    disabled={saving === os.id}
+                                    className={`h-10 px-4 font-bold ${isDirty
+                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                                         }`}
                                 >
                                     {saving === os.id ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : hasValue && !isDirty ? (
-                                        <CheckCircle2 className="h-4 w-4" />
+                                        <Loader2 className="w-4 h-4 animate-spin" />
                                     ) : (
                                         "Salvar"
                                     )}
                                 </Button>
                             </div>
                         </div>
-
-                        {/* Items */}
-                        {os.items.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-slate-100">
-                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">
-                                    Peças / Serviços Registrados na OS:
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {os.items.map((item, i) => (
-                                        <span key={i} className="text-xs px-2.5 py-1 bg-slate-100 text-slate-700 font-medium rounded-md border border-slate-200">
-                                            {item.quantity > 1 && <span className="font-bold mr-1">{item.quantity}×</span>}
-                                            {item.title}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 );
             })}
@@ -228,27 +572,34 @@ function OSValueEntry() {
     );
 }
 
-// ─── Payment Report ───────────────────────────────────────────────────────────
+// ─── 3. DEMONSTRATIVO MENSAL & EMISSÃO DE PDF ──────────────────────────────────
 
 function PaymentReportPanel() {
     const today = new Date();
-    const [month, setMonth] = useState(today.getMonth() + 1);
-    const [year, setYear] = useState(today.getFullYear());
-    const [report, setReport] = useState<ReportData | null>(null);
+    const [month, setMonth] = useState<number>(today.getMonth() + 1);
+    const [year, setYear] = useState<number>(today.getFullYear());
     const [loading, setLoading] = useState(false);
+    const [report, setReport] = useState<ReportData | null>(null);
     const reportRef = useRef<HTMLDivElement>(null);
+
+    const years = Array.from({ length: 4 }, (_, i) => today.getFullYear() - i);
 
     async function handleGenerate() {
         setLoading(true);
-        const data = await getPaymentReportDataAction(month, year);
-        setReport(data as ReportData);
+        const result = await getPaymentReportDataAction(month, year);
+        if (result.success) {
+            setReport(result as ReportData);
+            toast.success("Demonstrativo financeiro gerado com sucesso!");
+        } else {
+            toast.error("Erro ao gerar demonstrativo financeiro.");
+        }
         setLoading(false);
     }
 
     function handlePrint() {
         if (!report) return;
 
-        const fileName = `Relatorio_Pagamento_${MONTHS_PT[month - 1]}_${year}`;
+        const fileName = `Relatorio_Financeiro_${MONTHS_PT[month - 1]}_${year}`;
         const now = new Date().toLocaleString("pt-BR");
         const monthLabel = `${MONTHS_PT[report.month - 1]} / ${report.year}`;
 
@@ -256,7 +607,7 @@ function PaymentReportPanel() {
             const total = os.items.reduce((s, it) => s + it.price * it.quantity, 0);
             return `
             <tr>
-              <td style="font-family:monospace;font-size:10px;color:#6366f1;font-weight:700;padding:9px 12px;border-bottom:1px solid #f1f5f9;">VOS-${String(os.code).padStart(6, '0')}</td>
+              <td style="font-family:monospace;font-size:10px;color:#2563eb;font-weight:700;padding:9px 12px;border-bottom:1px solid #f1f5f9;">VOS-${String(os.code).padStart(6, '0')}</td>
               <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;">
                 <div style="font-weight:700;color:#1e293b;font-size:11px;">${os.assetName || '—'}</div>
                 <div style="font-size:9px;color:#94a3b8;margin-top:2px;">${os.description}</div>
@@ -272,7 +623,7 @@ function PaymentReportPanel() {
         const correctiveRows = report.correctiveTickets.map(os => {
             return `
             <tr>
-              <td style="font-family:monospace;font-size:10px;color:#f97316;font-weight:700;padding:9px 12px;border-bottom:1px solid #f1f5f9;">VOS-${String(os.code).padStart(6, '0')}</td>
+              <td style="font-family:monospace;font-size:10px;color:#ea580c;font-weight:700;padding:9px 12px;border-bottom:1px solid #f1f5f9;">VOS-${String(os.code).padStart(6, '0')}</td>
               <td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;">
                 <div style="font-weight:700;color:#1e293b;font-size:11px;">${os.assetName || '—'}</div>
                 <div style="font-size:9px;color:#94a3b8;margin-top:2px;">${os.description}</div>
@@ -310,11 +661,11 @@ function PaymentReportPanel() {
   <!-- HEADER -->
   <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:22px 26px;border-radius:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
-      <div style="font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;">Sistema de Gestão e Transparência — ValidAr</div>
-      <h1 style="font-size:19px;font-weight:900;color:#fff;margin-bottom:6px;">Relatório Consolidado de Pagamento</h1>
+      <div style="font-size:8px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.15em;margin-bottom:6px;">Sistema de Gestão e Fiscalização de Climatização — ValidAr</div>
+      <h1 style="font-size:19px;font-weight:900;color:#fff;margin-bottom:6px;">Demonstrativo Financeiro Mensal de Serviços</h1>
       <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-        <span style="display:inline-block;background:rgba(99,102,241,.3);color:#c7d2fe;border:1px solid rgba(99,102,241,.5);border-radius:20px;padding:2px 12px;font-size:10px;font-weight:700;">${monthLabel}</span>
-        <span style="font-size:10px;color:#94a3b8;">Preventivos e Corretivos Validados</span>
+        <span style="display:inline-block;background:rgba(16,185,129,.25);color:#a7f3d0;border:1px solid rgba(16,185,129,.4);border-radius:20px;padding:2px 12px;font-size:10px;font-weight:700;">${monthLabel}</span>
+        <span style="font-size:10px;color:#94a3b8;">Despesas Consolidadas (Preventivas e Corretivas Atestadas)</span>
       </div>
     </div>
     <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:11px 16px;text-align:right;min-width:160px;">
@@ -348,11 +699,11 @@ function PaymentReportPanel() {
 
     <div style="border-radius:10px;overflow:hidden;border:2px solid #10b981;box-shadow:0 2px 8px rgba(16,185,129,.15);">
       <div style="background:#10b981;padding:8px 16px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#ecfdf5;border-bottom:1px solid #059669;display:flex;justify-content:space-between;align-items:center;">
-        <span>Total Geral a Pagar</span> <span>✓</span>
+        <span>Total Consolidado a Pagar</span> <span>✓</span>
       </div>
       <div style="background:#f0fdf4;padding:14px 16px;">
         <div style="font-size:26px;font-weight:900;color:#059669;">${fmtCurrency(report.grandTotal)}</div>
-        <div style="font-size:9px;font-weight:700;color:#6ee7b7;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;">Soma do Período</div>
+        <div style="font-size:9px;font-weight:700;color:#6ee7b7;text-transform:uppercase;letter-spacing:.08em;margin-top:3px;">Soma Financeira do Mês</div>
       </div>
     </div>
 
@@ -363,18 +714,18 @@ function PaymentReportPanel() {
   <!-- PREVENTIVE TABLE -->
   <div style="margin-bottom:26px;">
     <div style="display:inline-flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;margin-bottom:12px;">
-      📅 Demonstrativo de Preventivas
+      📅 Manutenções Preventivas (Tarifadas em Ata)
     </div>
     ${report.preventiveTickets.length === 0
                 ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px 18px;color:#94a3b8;font-style:italic;font-size:10px;">Não constam registros de OS preventivas validadas neste período.</div>`
                 : `<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
         <table>
           <thead><tr ${theadStyle}>
-            <th ${thStyle} style="width:110px;text-align:left;padding:8px 12px;font-size:9px;font-weight:700;text-transform:uppercase;color:#475569;">Nº OS</th>
+            <th ${thStyle} style="width:110px;">Nº OS</th>
             <th ${thStyle}>Equipamento</th>
             <th ${thStyle}>Localização</th>
             <th ${thStyle}>Data</th>
-            <th ${thRStyle}>Valor Catálogo</th>
+            <th ${thRStyle}>Valor Unitário Contratado</th>
           </tr></thead>
           <tbody>${preventiveRows}</tbody>
           <tfoot><tr style="background:#eff6ff;border-top:2px solid #bfdbfe;">
@@ -389,18 +740,18 @@ function PaymentReportPanel() {
   <!-- CORRECTIVE TABLE -->
   <div style="margin-bottom:26px;">
     <div style="display:inline-flex;align-items:center;gap:6px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;margin-bottom:12px;">
-      🔧 Demonstrativo de Corretivas (Reparos)
+      🔧 Manutenções Corretivas (Reparos e Peças)
     </div>
     ${report.correctiveTickets.length === 0
                 ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px 18px;color:#94a3b8;font-style:italic;font-size:10px;">Não constam registros de OS corretivas validadas neste período.</div>`
                 : `<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
         <table>
           <thead><tr ${theadStyle}>
-            <th ${thStyle} style="width:110px;text-align:left;padding:8px 12px;font-size:9px;font-weight:700;text-transform:uppercase;color:#475569;">Nº OS</th>
+            <th ${thStyle} style="width:110px;">Nº OS</th>
             <th ${thStyle}>Equipamento Reparado</th>
             <th ${thStyle}>Localização</th>
             <th ${thStyle}>Data</th>
-            <th ${thRStyle}>Valor Informado</th>
+            <th ${thRStyle}>Valor Cobrado</th>
           </tr></thead>
           <tbody>${correctiveRows}</tbody>
           <tfoot><tr style="background:#fff7ed;border-top:2px solid #fed7aa;">
@@ -414,15 +765,14 @@ function PaymentReportPanel() {
 
   <!-- GRAND TOTAL BAR -->
   <div style="background:linear-gradient(90deg,#059669,#10b981);border-radius:10px;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-    <div style="color:#ecfdf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Total Consolidado do Período</div>
+    <div style="color:#ecfdf5;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Total Consolidado de Gastos do Período</div>
     <div style="color:#fff;font-size:24px;font-weight:900;">${fmtCurrency(report.grandTotal)}</div>
   </div>
 
   <!-- FOOTER -->
   <div style="text-align:center;padding-top:14px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8;line-height:1.6;">
-    Este documento possui validade para conferência administrativa entre as partes.<br/>
-    Os valores preventivos são baseados nos preços do catálogo do pregão. Os corretivos foram lançados manualmente pelo técnico líder.<br/>
-    Os valores estão sujeitos à aprovação final pelo fiscal do contrato.<br/>
+    Este documento possui validade para controle financeiro, prestação de contas e instrução do processo de pagamento.<br/>
+    Os valores preventivos seguem a tabela licitada da ata e as corretivas possuem atesto individual pelo fiscal de setor.<br/>
     <strong style="color:#64748b;">Emitido em: ${now} — Sistema ValidAr</strong>
   </div>
 
@@ -445,10 +795,6 @@ function PaymentReportPanel() {
         }, 700);
     }
 
-
-
-    const years = Array.from({ length: 3 }, (_, i) => new Date().getFullYear() - i);
-
     return (
         <div className="space-y-6">
             {/* Controls */}
@@ -456,7 +802,7 @@ function PaymentReportPanel() {
                 <div className="space-y-1.5 flex-1 min-w-[200px] max-w-[240px]">
                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mês Base</label>
                     <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-                        <SelectTrigger className="h-11 bg-white border-slate-300 text-slate-800 text-sm font-semibold focus:ring-indigo-500">
+                        <SelectTrigger className="h-11 bg-white border-slate-300 text-slate-800 text-sm font-semibold focus:ring-emerald-500">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-slate-200">
@@ -469,7 +815,7 @@ function PaymentReportPanel() {
                 <div className="space-y-1.5 w-[120px]">
                     <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ano</label>
                     <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-                        <SelectTrigger className="h-11 bg-white border-slate-300 text-slate-800 text-sm font-semibold focus:ring-indigo-500">
+                        <SelectTrigger className="h-11 bg-white border-slate-300 text-slate-800 text-sm font-semibold focus:ring-emerald-500">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-white border-slate-200">
@@ -479,9 +825,9 @@ function PaymentReportPanel() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button onClick={handleGenerate} disabled={loading} className="h-11 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md shadow-indigo-600/20">
+                <Button onClick={handleGenerate} disabled={loading} className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
-                    {loading ? "Processando..." : "Gerar Relatório Resumo"}
+                    {loading ? "Processando..." : "Gerar Demonstrativo Financeiro"}
                 </Button>
             </div>
 
@@ -489,7 +835,7 @@ function PaymentReportPanel() {
             {report && (
                 <div className="space-y-4">
                     <div className="flex justify-end pr-2">
-                        <Button onClick={handlePrint} variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 font-bold">
+                        <Button onClick={handlePrint} variant="outline" className="border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-bold">
                             <Download className="h-4 w-4 mr-2" />
                             Salvar em PDF
                         </Button>
@@ -504,13 +850,13 @@ function PaymentReportPanel() {
                         <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-8 py-6 border-b border-slate-200">
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <h2 className="text-2xl font-black text-white tracking-tight">Relatório Consolidado de Pagamento</h2>
+                                    <h2 className="text-2xl font-black text-white tracking-tight">Demonstrativo Financeiro Consolidado</h2>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <Badge className="bg-indigo-500/20 text-indigo-200 hover:bg-indigo-500/20 border-indigo-500/30 font-bold">
+                                        <Badge className="bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/20 border-emerald-500/30 font-bold">
                                             {MONTHS_PT[report.month - 1]} / {report.year}
                                         </Badge>
                                         <span className="text-sm text-slate-400 font-medium tracking-wide">
-                                            Serviços Preventivos e Corretivos Validados
+                                            Serviços Preventivos e Corretivos Concluídos e Atestados
                                         </span>
                                     </div>
                                 </div>
@@ -523,7 +869,7 @@ function PaymentReportPanel() {
 
                         <div className="p-8 space-y-8">
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="rounded-xl border border-blue-100 bg-white shadow-sm overflow-hidden">
                                     <div className="bg-blue-50 py-2 px-4 border-b border-blue-100 font-bold text-xs uppercase text-blue-800 tracking-wider">
                                         Subtotal Preventivas
@@ -546,12 +892,12 @@ function PaymentReportPanel() {
 
                                 <div className="rounded-xl border-2 border-emerald-500 bg-white shadow-md overflow-hidden transform scale-[1.02]">
                                     <div className="bg-emerald-500 py-2 px-4 font-bold text-xs uppercase text-emerald-50 tracking-wider flex justify-between items-center">
-                                        <span>Total Geral a Pagar</span>
+                                        <span>Total Geral do Mês</span>
                                         <CheckCircle2 className="w-4 h-4 text-emerald-200" />
                                     </div>
                                     <div className="p-5">
                                         <p className="text-3xl font-black text-emerald-700">{fmtCurrency(report.grandTotal)}</p>
-                                        <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mt-1">Soma do Período</p>
+                                        <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mt-1">Soma Financeira Consolidada</p>
                                     </div>
                                 </div>
                             </div>
@@ -562,7 +908,7 @@ function PaymentReportPanel() {
                             <div>
                                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4 bg-blue-50 w-fit px-3 py-1 rounded-md text-blue-800 border border-blue-100">
                                     <Calendar className="h-4 w-4" />
-                                    Demonstrativo de Preventivas
+                                    Manutenções Preventivas
                                 </h3>
                                 {report.preventiveTickets.length === 0 ? (
                                     <p className="text-sm text-slate-500 italic bg-slate-50 p-4 rounded-lg border border-slate-100">Não constam registros de OS preventivas validadas neste período.</p>
@@ -572,9 +918,9 @@ function PaymentReportPanel() {
                                             <thead>
                                                 <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                                                     <th className="text-left px-4 py-3 font-bold uppercase text-[10px] tracking-widest w-24">Ordem</th>
-                                                    <th className="text-left px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Equipamento referenciado</th>
+                                                    <th className="text-left px-4 py-3 font-bold uppercase text-[10px] tracking-widest">Equipamento</th>
                                                     <th className="text-left px-4 py-3 font-bold uppercase text-[10px] tracking-widest hidden md:table-cell">Setor / Local</th>
-                                                    <th className="text-right px-4 py-3 font-bold uppercase text-[10px] tracking-widest w-36">Catálogo Base</th>
+                                                    <th className="text-right px-4 py-3 font-bold uppercase text-[10px] tracking-widest w-36">Valor da Ata</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -612,7 +958,7 @@ function PaymentReportPanel() {
                             <div>
                                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4 bg-orange-50 w-fit px-3 py-1 rounded-md text-orange-800 border border-orange-100 mt-8">
                                     <Wrench className="h-4 w-4" />
-                                    Demonstrativo de Corretivas (Reparos)
+                                    Manutenções Corretivas (Reparos)
                                 </h3>
                                 {report.correctiveTickets.length === 0 ? (
                                     <p className="text-sm text-slate-500 italic bg-slate-50 p-4 rounded-lg border border-slate-100">Não constam registros de OS corretivas validadas neste período.</p>
@@ -663,8 +1009,7 @@ function PaymentReportPanel() {
 
                             <div className="pt-8 text-center border-t border-slate-200">
                                 <p className="text-xs text-slate-400 font-medium">
-                                    Este documento possui validade para conferência administrativa entre as partes.
-                                    Os valores estão sujeitos à aprovação final pelo fiscal do contrato.
+                                    Demonstrativo financeiro para conferência administrativa entre as partes e instrução de pagamento.
                                 </p>
                             </div>
                         </div>
@@ -675,54 +1020,70 @@ function PaymentReportPanel() {
     );
 }
 
-// ─── Main Export ─────────────────────────────────────────────────────────────
+// ─── 4. MAIN EXPORT ──────────────────────────────────────────────────────────
 
-export function PaymentReportManager({ isManager }: { isManager: boolean }) {
-    const [tab, setTab] = useState<"values" | "report">("values");
+export function PaymentReportManager({ isManager = true }: { isManager?: boolean }) {
+    const [tab, setTab] = useState<"charts" | "report" | "values">("charts");
 
     if (!isManager) return null;
 
     return (
         <div className="space-y-6">
-            {/* Tab toggle */}
-            <div className="flex bg-slate-100 p-1 rounded-xl w-fit shadow-inner">
+            {/* Top Sub-Navigation Tabs */}
+            <div className="flex bg-slate-100/90 p-1.5 rounded-xl w-full sm:w-fit overflow-x-auto shadow-inner gap-1">
                 <button
-                    onClick={() => setTab("values")}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === "values"
-                        ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                    onClick={() => setTab("charts")}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${tab === "charts"
+                        ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                         }`}
                 >
-                    <DollarSign className="h-4 w-4" /> Lançar Preços de Corretiva
+                    <BarChart3 className="h-4 w-4 text-emerald-600" /> Gráficos de Gastos
                 </button>
                 <button
                     onClick={() => setTab("report")}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${tab === "report"
-                        ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                    className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${tab === "report"
+                        ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                         }`}
                 >
-                    <FileText className="h-4 w-4" /> Emitir Relatório PDF
+                    <FileText className="h-4 w-4 text-emerald-600" /> Relatório Mensal & PDF
+                </button>
+                <button
+                    onClick={() => setTab("values")}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-lg transition-all ${tab === "values"
+                        ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                        }`}
+                >
+                    <DollarSign className="h-4 w-4 text-emerald-600" /> Lançar Custos de Corretivas
                 </button>
             </div>
 
+            {/* Tab Contents */}
             <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
+                <CardHeader className="bg-slate-50/80 border-b border-slate-100 pb-4">
                     <CardTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        {tab === "values" ? (
-                            <><DollarSign className="h-5 w-5 text-indigo-600" /> Fechamento de Corretivas</>
-                        ) : (
-                            <><FileText className="h-5 w-5 text-indigo-600" /> Resumo de Pagamentos</>
+                        {tab === "charts" && (
+                            <><BarChart3 className="h-5 w-5 text-emerald-600" /> Painel Financeiro e Gráficos de Custos</>
+                        )}
+                        {tab === "report" && (
+                            <><FileText className="h-5 w-5 text-emerald-600" /> Demonstrativo Financeiro de Serviços</>
+                        )}
+                        {tab === "values" && (
+                            <><DollarSign className="h-5 w-5 text-emerald-600" /> Registro de Valores de Corretivas</>
                         )}
                     </CardTitle>
                     <CardDescription className="text-slate-500 text-sm font-medium">
-                        {tab === "values"
-                            ? "Para cada corretiva (reparo) aprovada, informe o valor da cotação vencedora escolhida."
-                            : "Verifique o subtotal mensal de horas preventivas tabeladas e corretivas aprovadas."}
+                        {tab === "charts" && "Acompanhe visualmente a evolução e a proporção de despesas com os serviços de manutenção."}
+                        {tab === "report" && "Consolide os gastos mensais e emita o relatório oficial em PDF para instrução de pagamento."}
+                        {tab === "values" && "Informe o valor total cobrado nas manutenções corretivas validadas pelos fiscais de setor."}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                    {tab === "values" ? <OSValueEntry /> : <PaymentReportPanel />}
+                    {tab === "charts" && <FinancialChartsPanel />}
+                    {tab === "report" && <PaymentReportPanel />}
+                    {tab === "values" && <OSValueEntry />}
                 </CardContent>
             </Card>
         </div>

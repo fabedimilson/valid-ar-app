@@ -171,6 +171,9 @@ export interface Ticket {
   items: ServiceItem[];
   quotation?: Quotation;
 
+  totalValue?: number;
+  closedAt?: string;
+
   openedAt: number;
   scheduledAt?: number;
   updatedAt: number;

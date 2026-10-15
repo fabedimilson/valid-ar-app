@@ -95,48 +95,56 @@
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+  --background: 0 0% 0%;
+  --foreground: 0 0% 98%;
 
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
+  --card: 0 0% 4%;
+  --card-foreground: 0 0% 98%;
 
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 0 0% 4%;
+  --popover-foreground: 0 0% 98%;
 
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  --primary: 158 64% 42%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 95%;
 
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 65%;
 
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 0 0% 14%;
+  --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
 
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --border: 0 0% 22%;
+  --input: 0 0% 22%;
+  --ring: 158 64% 42%;
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-200;
   }
 }
 
-/* Glassmorphism Utilities */
+/* Utilitários de Bordas e Contraste Alto */
 @layer utilities {
+  .border-crisp {
+    @apply border-2 border-slate-300 dark:border-neutral-700;
+  }
+
+  .card-crisp {
+    @apply rounded-xl border-2 border-slate-200/90 bg-white p-5 shadow-sm transition-all dark:border-neutral-800 dark:bg-neutral-950;
+  }
+
   .glass {
     @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl;
   }
 
   .glass-dark {
-    @apply bg-black/70 backdrop-blur-lg border border-white/10 shadow-xl;
+    @apply bg-black/85 backdrop-blur-lg border border-neutral-800 shadow-xl;
   }
 }

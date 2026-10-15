@@ -18,13 +18,18 @@ function mapAssetStatusToPrisma(status: string) {
 }
 
 function mapTicketStatusToPrisma(status: string) {
-    // Front: 'open' | 'in_progress' | 'waiting_validation' | 'validated' | 'completed'
     switch (status) {
         case 'open': return 'OPEN';
+        case 'awaiting_quotation': return 'AWAITING_QUOTATION';
+        case 'awaiting_approval': return 'AWAITING_APPROVAL';
+        case 'authorized': return 'AUTHORIZED';
+        case 'scheduled': return 'SCHEDULED';
         case 'in_progress': return 'IN_PROGRESS';
         case 'waiting_validation': return 'WAITING_VALIDATION';
         case 'validated': return 'VALIDATED';
+        case 'rejected': return 'REJECTED';
         case 'completed': return 'VALIDATED';
+        case 'cancelled': return 'CANCELLED';
         default: return 'OPEN';
     }
 }
@@ -683,55 +688,209 @@ export async function addItemToTicketAction(ticketId: string, item: ServiceItem)
     try {
         console.log(`Adicionando item ao ticket ${ticketId}`, item);
 
-        // 1. Create Service Item
+        // Generate a safe unique ID for the DB (item.id from frontend may be a float like '0.12345')
+        // Use crypto.randomUUID() if available, otherwise fallback to a timestamp-based ID
+        const generateSafeId = () => {
+            try {
+                return crypto.randomUUID();
+            } catch {
+                return `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            }
+        };
+
+        // 1. Create Service Item (safe ID, not trusting the float from Math.random() on frontend)
         const newItem = await prisma.serviceItem.create({
             data: {
-                id: item.id, // Use ID from front if possible, or let default
+                id: generateSafeId(),
                 ticketId: ticketId,
                 titleSnapshot: item.title,
                 priceSnapshot: item.estimatedValue,
-                technicianNotes: item.description,
+                technicianNotes: item.description || null,
                 validationStatus: 'PENDING',
-                // category is not in schema directly? Ah, schema has no category. It's implicit or missing.
-                // Checking schema: ServiceItem has catalogReferenceId but no category enum.
-                // Ideally we should map catalogReferenceId.
-                catalogReferenceId: item.catalogItemId
+                catalogReferenceId: item.catalogItemId || null
             }
         });
 
-
-        // 2. Add Evidence
+        // 2. Add Evidence (photos)
         if (item.technicianPhotos && item.technicianPhotos.length > 0) {
-            // Find a valid user to attribute upload to (Mocking session)
-            const uploader = await prisma.user.findFirst();
-            const uploaderId = uploader?.id || 'admin-temp'; // Fallback will fail if empty DB
+            // Find a valid user to attribute upload to
+            const uploader = await prisma.user.findFirst({ where: { active: true } });
+            const uploaderId = uploader?.id;
 
-            for (const photo of item.technicianPhotos) {
-                // Ensure valid enum for type
-                const evType = photo.type === 'before' ? 'BEFORE' : (photo.type === 'after' ? 'AFTER' : 'INSPECTION');
+            if (!uploaderId) {
+                console.warn('Nenhum usuário ativo encontrado para associar às fotos.');
+            } else {
+                for (const photo of item.technicianPhotos) {
+                    if (!photo.url) continue; // Skip if no URL
 
-                await prisma.evidenceLink.create({
-                    data: {
-                        serviceItemId: newItem.id,
-                        url: photo.url,
-                        type: evType,
-                        uploadedById: uploaderId
-                    }
-                });
+                    // Ensure valid enum for type
+                    const evType = photo.type === 'before' ? 'BEFORE' : (photo.type === 'after' ? 'AFTER' : 'INSPECTION');
+
+                    await prisma.evidenceLink.create({
+                        data: {
+                            serviceItemId: newItem.id,
+                            url: photo.url,
+                            type: evType,
+                            uploadedById: uploaderId
+                        }
+                    });
+                }
             }
         }
 
         revalidatePath('/');
-        return { success: true };
+        return { success: true, itemId: newItem.id };
 
     } catch (e) {
         console.error("Erro ao adicionar item:", e);
-        return { success: false, error: e };
+        return { success: false, error: String(e) };
     }
 }
 
-export async function updateTicketAction(ticketId: string, updates: Partial<Ticket>) { return { success: false }; }
-export async function updateItemValidationAction(ticketId: string, itemId: string, status: ServiceItem['validationStatus'], notes?: string) { return { success: false }; }
+export async function updateTicketAction(ticketId: string, updates: Partial<Ticket>) {
+    try {
+        const dataToUpdate: any = {};
+        
+        if (updates.status) {
+            dataToUpdate.status = mapTicketStatusToPrisma(updates.status);
+            if (updates.status === 'validated') {
+                dataToUpdate.closedAt = new Date();
+            }
+        }
+        if (updates.description !== undefined) dataToUpdate.description = updates.description;
+        if (updates.technicianId !== undefined) dataToUpdate.technicianId = updates.technicianId || null;
+        if (updates.scheduledAt !== undefined) dataToUpdate.scheduledAt = updates.scheduledAt ? new Date(updates.scheduledAt) : null;
+        if (updates.totalValue !== undefined) dataToUpdate.totalValue = updates.totalValue;
+
+        await prisma.ticket.update({
+            where: { id: ticketId },
+            data: dataToUpdate
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (e) {
+        console.error("Erro ao atualizar ticket:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+export async function updateItemValidationAction(
+    ticketId: string, 
+    itemId: string, 
+    status: ServiceItem['validationStatus'], 
+    notes?: string
+) {
+    try {
+        const prismaStatus = status === 'approved' ? 'APPROVED' : (status === 'rejected' ? 'REJECTED' : 'PENDING');
+        
+        const updateData: any = {
+            validationStatus: prismaStatus
+        };
+        if (notes) {
+            updateData.technicianNotes = notes;
+        }
+
+        await prisma.serviceItem.update({
+            where: { id: itemId },
+            data: updateData
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (e) {
+        console.error("Erro ao atualizar validação do item:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+export async function submitQuotationAction(ticketId: string, quotation: { totalValue: number; fileUrl: string }) {
+    try {
+        await prisma.quotation.upsert({
+            where: { ticketId },
+            create: {
+                ticketId,
+                totalValue: quotation.totalValue,
+                fileUrl: quotation.fileUrl,
+            },
+            update: {
+                totalValue: quotation.totalValue,
+                fileUrl: quotation.fileUrl,
+            }
+        });
+
+        await prisma.ticket.update({
+            where: { id: ticketId },
+            data: { status: 'AWAITING_APPROVAL' }
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (e) {
+        console.error("Erro ao submeter cotação:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+export async function approveQuotationAction(ticketId: string, approvedById?: string) {
+    try {
+        let approverId = approvedById;
+        if (!approverId) {
+            const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', active: true } });
+            approverId = admin?.id;
+        }
+
+        await prisma.quotation.update({
+            where: { ticketId },
+            data: {
+                approvedById: approverId || null,
+                approvedAt: new Date()
+            }
+        });
+
+        await prisma.ticket.update({
+            where: { id: ticketId },
+            data: { status: 'AUTHORIZED' }
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (e) {
+        console.error("Erro ao aprovar cotação:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+export async function recordValidationAction(params: {
+    ticketId: string;
+    action: 'APPROVED' | 'REJECTED';
+    reason?: string;
+    validatorId?: string;
+}) {
+    try {
+        let validatorId = params.validatorId;
+        if (!validatorId) {
+            const fiscal = await prisma.user.findFirst({ where: { role: 'SERVER', active: true } });
+            validatorId = fiscal?.id;
+        }
+
+        if (validatorId) {
+            await prisma.validation.create({
+                data: {
+                    ticketId: params.ticketId,
+                    validatorId,
+                    action: params.action,
+                    reason: params.reason || null
+                }
+            });
+        }
+        revalidatePath('/');
+        return { success: true };
+    } catch (e) {
+        console.error("Erro ao registrar histórico de validação:", e);
+        return { success: false, error: String(e) };
+    }
+}
 
 // --- VALOR DA OS (Técnico Líder) ---
 
@@ -860,3 +1019,83 @@ export async function getPaymentReportDataAction(month: number, year: number, co
         };
     }
 }
+
+export async function getFinancialEvolutionAction(year: number) {
+    try {
+        const startDate = new Date(year, 0, 1);
+        const endDate = new Date(year, 11, 31, 23, 59, 59);
+
+        const ticketsRaw = await prisma.ticket.findMany({
+            where: {
+                status: 'VALIDATED',
+                updatedAt: { gte: startDate, lte: endDate }
+            },
+            include: {
+                items: {
+                    select: { priceSnapshot: true, quantity: true }
+                }
+            }
+        });
+
+        const MONTH_NAMES = [
+            "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+            "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+        ];
+
+        const monthsData = Array.from({ length: 12 }, (_, i) => ({
+            month: i + 1,
+            name: MONTH_NAMES[i],
+            preventiveTotal: 0,
+            correctiveTotal: 0,
+            total: 0,
+            preventiveCount: 0,
+            correctiveCount: 0,
+            totalCount: 0,
+        }));
+
+        for (const t of ticketsRaw) {
+            const m = new Date(t.updatedAt).getMonth();
+            if (m >= 0 && m < 12) {
+                if (t.type === 'PREVENTIVE') {
+                    const itemsTotal = (t.items || []).reduce((s: number, it: any) => s + Number(it.priceSnapshot || 0) * it.quantity, 0);
+                    monthsData[m].preventiveTotal += itemsTotal;
+                    monthsData[m].preventiveCount += 1;
+                    monthsData[m].total += itemsTotal;
+                } else {
+                    const val = t.totalValue ? Number(t.totalValue) : 0;
+                    monthsData[m].correctiveTotal += val;
+                    monthsData[m].correctiveCount += 1;
+                    monthsData[m].total += val;
+                }
+                monthsData[m].totalCount += 1;
+            }
+        }
+
+        const yearPreventive = monthsData.reduce((s, m) => s + m.preventiveTotal, 0);
+        const yearCorrective = monthsData.reduce((s, m) => s + m.correctiveTotal, 0);
+        const yearGrandTotal = yearPreventive + yearCorrective;
+        const totalTicketsCount = ticketsRaw.length;
+
+        return {
+            success: true,
+            year,
+            months: monthsData,
+            yearPreventive,
+            yearCorrective,
+            yearGrandTotal,
+            totalTicketsCount
+        };
+    } catch (e) {
+        console.error("Erro ao buscar evolução financeira:", e);
+        return {
+            success: false,
+            year,
+            months: [],
+            yearPreventive: 0,
+            yearCorrective: 0,
+            yearGrandTotal: 0,
+            totalTicketsCount: 0
+        };
+    }
+}
+

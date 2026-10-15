@@ -19,46 +19,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
                 if (!email || !password) return null;
 
-                // BACKDOOR PRIORITARIO
-                if (email === 'admin@ifam.edu.br') { // Aceita qualquer senha por enquanto pra garantir
-                    return { id: 'admin-temp', name: 'Admin Temp super', email: 'admin@ifam.edu.br', role: 'admin' };
-                }
-
                 try {
-                    // Tenta buscar no banco
+                    // Busca usuário pelo e-mail com relações necessárias
                     const user = await prisma.user.findUnique({
                         where: { email },
+                        include: {
+                            responsibleForSectors: { select: { id: true } },
+                            technicianProfile: { select: { isManager: true, companyId: true } }
+                        }
                     });
 
-                    // Se nao achar, falha (exceto se for o admin hardcoded de resgate)
-                    if (!user) {
-                        // Backdoor de seguranca caso o banco esteja vazio
-                        if (email === 'admin@ifam.edu.br' && password === 'admin') {
-                            return {
-                                id: 'admin-temp', name: 'Admin Temp', email, role: 'admin'
-                            };
-                        }
+                    if (!user || !user.active) {
                         return null;
                     }
 
-                    // Valida senha
-                    let isValid = false;
-
-                    if (user.passwordHash) {
-                        isValid = await bcrypt.compare(password, user.passwordHash);
-                    } else if (email === 'admin@ifam.edu.br' && password === 'admin') {
-                        // Permite admin sem hash (legado)
-                        isValid = true;
+                    // Valida senha criptografada
+                    if (!user.passwordHash) {
+                        return null;
                     }
 
+                    const isValid = await bcrypt.compare(password, user.passwordHash);
+
                     if (isValid) {
-                        if (!user.active) return null; // Block inactive users
+                        const sectorId = user.responsibleForSectors && user.responsibleForSectors.length > 0 
+                            ? user.responsibleForSectors[0].id 
+                            : undefined;
 
                         return {
                             id: user.id,
                             name: user.name,
                             email: user.email,
                             role: user.role.toLowerCase(),
+                            sectorId,
+                            isManager: user.technicianProfile?.isManager || false,
+                            companyId: user.technicianProfile?.companyId || undefined
                         };
                     }
                 } catch (error) {

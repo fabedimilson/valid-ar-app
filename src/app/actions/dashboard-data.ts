@@ -95,7 +95,7 @@ export async function getDashboardData() {
                     category: category,
                     estimatedValue: Number(i.priceSnapshot || 0),
                     technicianPhotos: techPhotos,
-                    validationStatus: i.validationStatus.toLowerCase(),
+                    validationStatus: (i.validationStatus || 'PENDING').toLowerCase(),
                     serverPhotos: [],
                     technicianNotes: i.technicianNotes || undefined
                 };

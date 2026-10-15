@@ -13,6 +13,7 @@ import { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 export default function TicketPage() {
     const { ticketId } = useParams();
@@ -26,18 +27,20 @@ export default function TicketPage() {
     const [viewPhoto, setViewPhoto] = useState<string | null>(null);
 
     const fetchedRef = useRef(false);
-    // Ensure data is loaded (handle refresh)
+    // Fetch data once on mount — do NOT include tickets/catalog in deps
+    // because those change on every optimistic update, causing a loop that
+    // overwrites local item additions with stale server data.
     useEffect(() => {
-        if (!fetchedRef.current && (catalog.length === 0 || !tickets.find(t => t.id === ticketId))) {
-            fetchedRef.current = true;
-            import('@/app/actions/dashboard-data').then(mod => {
-                mod.getDashboardData().then(data => {
-                    // @ts-ignore
-                    setData(data);
-                });
+        if (fetchedRef.current) return;
+        fetchedRef.current = true;
+        import('@/app/actions/dashboard-data').then(mod => {
+            mod.getDashboardData().then(data => {
+                // @ts-ignore
+                setData(data);
             });
-        }
-    }, [catalog.length, ticketId, tickets, setData]);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // intentionally empty - run once on mount only
 
     const startedRef = useRef(false);
     // Auto-start service if opening page (only if ticket exists)
@@ -61,14 +64,25 @@ export default function TicketPage() {
         );
     }
 
+    const hasBeforePhoto = ticket.items.some(i => (i.technicianPhotos || []).some(p => p.type === 'before'));
+    const hasAfterPhoto = ticket.items.some(i => (i.technicianPhotos || []).some(p => p.type === 'after'));
+
     const handleFinish = () => {
         if (ticket.items.length === 0) {
-            alert("Adicione pelo menos 1 item (serviço ou peça) antes de finalizar.");
+            toast.error("Adicione pelo menos 1 serviço ou peça antes de finalizar.");
             return;
         }
-        if (confirm("Finalizar este atendimento e enviar para validação do setor?")) {
+        if (!hasBeforePhoto) {
+            toast.error("Exigência IFAM CMC: Anexe pelo menos 1 foto do 'Antes' antes de finalizar.");
+            return;
+        }
+        if (!hasAfterPhoto) {
+            toast.error("Exigência IFAM CMC: Anexe pelo menos 1 foto do 'Depois' do serviço finalizado.");
+            return;
+        }
+        if (confirm("Finalizar este atendimento e enviar para validação do fiscal do setor?")) {
             submitTicket(ticket.id);
-            alert("✓ Serviço finalizado! Enviado para validação do fiscal.");
+            toast.success("✓ Atendimento finalizado! Notificação enviada ao fiscal.");
             router.push("/");
         }
     };
@@ -82,14 +96,14 @@ export default function TicketPage() {
 
     // Calculate progress
     const hasItems = ticket.items.length > 0;
-    const hasPhotos = ticket.items.some(i => i.technicianPhotos.length > 0);
+    const hasPhotos = hasBeforePhoto && hasAfterPhoto;
     const progressPercent = hasItems ? (hasPhotos ? 100 : 50) : 0;
 
     return (
         <TooltipProvider delayDuration={200}>
-            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-40">
+            <div className="min-h-screen bg-neutral-50 dark:bg-black text-neutral-900 dark:text-neutral-100 pb-40">
                 {/* Enhanced Header */}
-                <div className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 border-b border-neutral-700/50 shadow-xl">
+                <div className="bg-neutral-900 dark:bg-black border-b-2 border-neutral-700/80 dark:border-neutral-800 shadow-xl">
                     {/* Top Bar */}
                     <div className="px-4 py-3 flex items-center justify-between">
                         <Link href="/">

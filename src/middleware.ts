@@ -11,9 +11,28 @@ export default auth((req) => {
     const isLoginPage = req.nextUrl.pathname.startsWith('/login')
     const isRootPage = req.nextUrl.pathname === '/'
 
+    const role = (req.auth?.user as any)?.role?.toLowerCase()
+    const pathname = req.nextUrl.pathname
+
     if (isLoggedIn) {
         if (isLoginPage || isRootPage) {
             return NextResponse.redirect(new URL('/dashboard', req.nextUrl))
+        }
+
+        // RBAC: Rotas de fiscalização e atesto de setor (/server/*)
+        if (pathname.startsWith('/server')) {
+            const isAuthorized = role === 'server' || role === 'admin' || role === 'fiscal_contrato'
+            if (!isAuthorized) {
+                return NextResponse.redirect(new URL('/dashboard', req.nextUrl))
+            }
+        }
+
+        // RBAC: Rotas técnicas (/technician/*)
+        if (pathname.startsWith('/technician')) {
+            const isAuthorized = role === 'technician' || role === 'admin' || role === 'fiscal_contrato'
+            if (!isAuthorized) {
+                return NextResponse.redirect(new URL('/dashboard', req.nextUrl))
+            }
         }
     }
 
